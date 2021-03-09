@@ -1,5 +1,4 @@
-use super::{CombatStats, Map, Player, Position, State, TileType, Viewshed};
-use crate::{RunState, WantsToMelee};
+use super::{CombatStats, Map, Player, Position, State, TileType, Viewshed, RunState, WantsToMelee};
 use rltk::{console, Point, Rltk, VirtualKeyCode};
 use specs::prelude::*;
 use std::cmp::{max, min};
@@ -13,7 +12,7 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     let mut wants_to_melee = ecs.write_storage::<WantsToMelee>();
     let map = ecs.fetch::<Map>();
 
-    for (_player, pos, viewshed) in (&mut players, &mut positions, &mut viewsheds).join() {
+    for (entity, _player, pos, viewshed) in (&entities, &players, &mut positions, &mut viewsheds).join() {
         let destination_idx = map.xy_idx(pos.x + delta_x, pos.y + delta_y);
 
         for potential_target in map.tile_content[destination_idx].iter() {
@@ -54,7 +53,7 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
 
 pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     match ctx.key {
-        None => return RunState::Paused,
+        None => return RunState::AwaitingInput,
         Some(key) => match key {
             VirtualKeyCode::Left | VirtualKeyCode::Numpad4 | VirtualKeyCode::H => {
                 try_move_player(-1, 0, &mut gs.ecs)
@@ -73,9 +72,9 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             VirtualKeyCode::Numpad7 => try_move_player(-1, -1, &mut gs.ecs),
             VirtualKeyCode::Numpad1 => try_move_player(-1, 1, &mut gs.ecs),
             VirtualKeyCode::Numpad3 => try_move_player(1, 1, &mut gs.ecs),
-            _ => return RunState::Paused,
+            _ => return RunState::AwaitingInput,
         },
     }
 
-    RunState::Running
+    RunState::PlayerTurn
 }

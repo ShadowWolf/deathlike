@@ -44,7 +44,7 @@ pub struct CombatStats {
     pub power: i32,
 }
 
-#[derive(Component, Debug, ConvertSaveload, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct WantsToMelee {
     pub target: Entity,
 }
