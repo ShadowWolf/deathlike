@@ -1,0 +1,12 @@
+[package]
+name = "deathlike"
+version = "0.1.0"
+authors = ["Bryan Wolf <shadowwolf007@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rltk = "0.8.1"
+specs = "0.16.1"
+specs-derive = "0.4.1"
