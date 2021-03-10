@@ -1,6 +1,5 @@
 use super::{BlocksTile, Map, Position};
 use specs::prelude::*;
-use specs::shred::DynamicSystemData;
 
 pub struct MapIndexingSystem {}
 
@@ -21,8 +20,8 @@ impl<'a> System<'a> for MapIndexingSystem {
         for (entity, position) in (&entities, &position).join() {
             let idx = map.xy_idx(position.x, position.y);
 
-            let _p: Option<&BlocksTile> = blockers.get(entity);
-            if let Some(_) = _p {
+            let p: Option<&BlocksTile> = blockers.get(entity);
+            if p.is_some() {
                 map.blocked[idx] = true;
             }
 

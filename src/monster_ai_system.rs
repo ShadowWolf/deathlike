@@ -1,5 +1,5 @@
-use super::{Map, Monster, Name, Position, Viewshed, RunState};
-use rltk::{console, field_of_view, Point};
+use super::{Map, Monster, Position, Viewshed, RunState};
+use rltk::{Point};
 use specs::prelude::*;
 use crate::WantsToMelee;
 
@@ -32,12 +32,13 @@ impl<'a> System<'a> for MonsterAI {
                 wants_to_melee.insert(entity, WantsToMelee { target: *player_entity }).expect("Unable to attack");
             }
             else if viewshed.visible_tiles.contains(&*player_pos) {
-                let path = rltk::a_star_search(map.xy_idx(pos.x, pos.y), map.xy_idx(player_pos.x, player_pos.y), &mut *map);
+                let path = rltk::a_star_search(map.xy_idx(pos.x, pos.y), map.xy_idx(player_pos.x, player_pos.y), &*map);
                 if path.success && path.steps.len() > 1 {
-                    let mut idx = map.xy_idx(pos.x, pos.y);
+                    let idx = map.xy_idx(pos.x, pos.y);
                     map.blocked[idx] = false;
                     pos.x = path.steps[1] as i32 % map.width;
                     pos.y = path.steps[1] as i32 / map.width;
+
                     let new_idx = map.xy_idx(pos.x, pos.y);
                     map.blocked[new_idx] = true;
                     viewshed.dirty = true;
