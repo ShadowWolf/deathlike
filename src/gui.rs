@@ -2,6 +2,7 @@ use rltk::{RGB, Rltk, Point, VirtualKeyCode};
 use specs::prelude::*;
 use super::{CombatStats, Player, GameLog, Map, Name, Position};
 use crate::{State, InBackpack};
+use specs::world::EntitiesRes;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ItemMenuResult {
@@ -35,38 +36,75 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
     draw_tooltips(ecs, ctx);
 }
 
-pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> ItemMenuResult {
+pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option<Entity>) {
     let player_entity = gs.ecs.fetch::<Entity>();
     let names = gs.ecs.read_storage::<Name>();
     let backpack = gs.ecs.read_storage::<InBackpack>();
+    let entities = gs.ecs.entities();
 
     let inventory = (&backpack, &names).join().filter(|item| item.0.owner == *player_entity);
     let count = inventory.count();
 
-    let mut y = (25 - (count / 2)) as i32;
-    ctx.draw_box(15 , y - 2, 31, (count + 3) as i32, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK));
-    ctx.print_color(18, y - 2, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), "Inventory");
-    ctx.print_color(18, y + count as i32 + 1, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), "Escape to exit/cancel");
+    let y = (25 - (count / 2)) as i32;
+    draw_title_box("Inventory".to_string(), ctx, count, y);
 
-    for (j, (_pack, name)) in (&backpack, &names).join().filter(|item| item.0.owner == *player_entity).enumerate() {
+    let (_, items) = find_and_print_equippable_items(ctx, &*player_entity, &names, &backpack, &entities, y);
+
+    process_item_selection(ctx, count, items)
+}
+
+pub fn show_drop_item(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option<Entity>) {
+    let player_entity = gs.ecs.fetch::<Entity>();
+    let names = gs.ecs.read_storage::<Name>();
+    let backpack = gs.ecs.read_storage::<InBackpack>();
+    let entities = gs.ecs.entities();
+
+    let inventory = (&backpack, &names).join().filter(|item| item.0.owner == *player_entity);
+    let count = inventory.count();
+
+    let y = (25 - (count / 2)) as i32;
+    draw_title_box("Drop which item?".to_string(), ctx, count, y);
+    let (_, items) = find_and_print_equippable_items(ctx, &*player_entity, &names, &backpack, &entities, y);
+
+    process_item_selection(ctx, count, items)
+}
+
+fn process_item_selection(ctx: &mut Rltk, count: usize, equippable: Vec<Entity>) -> (ItemMenuResult, Option<Entity>) {
+    match ctx.key {
+        None => (ItemMenuResult::NoResponse, None),
+        Some(key) => {
+            match key {
+                VirtualKeyCode::Escape => { (ItemMenuResult::Cancel, None) },
+                _ => {
+                    let selection = rltk::letter_to_option(key);
+                    if selection > -1 && selection < count as i32 {
+                        return (ItemMenuResult::Selected, Some(equippable[selection as usize]))
+                    }
+                    (ItemMenuResult::NoResponse, None)
+                }
+            }
+        }
+    }
+}
+
+fn find_and_print_equippable_items(ctx: &mut Rltk, player_entity: &Entity, names: &ReadStorage<Name>, backpack: &ReadStorage<InBackpack>, entities: &Read<EntitiesRes>, mut y: i32) -> (i32, Vec<Entity>) {
+    let mut equippable: Vec<Entity> = Vec::new();
+    for (j, (entity, _pack, name)) in (entities, backpack, names).join().filter(|item| item.1.owner == *player_entity).enumerate() {
         ctx.set(17, y, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK), rltk::to_cp437('('));
         ctx.set(18, y, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), 97 + j as rltk::FontCharType);
         ctx.set(19, y, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK), rltk::to_cp437(')'));
 
         ctx.print(21, y, &name.name.to_string());
+        equippable.push(entity);
         y += 1;
     }
+    (y, equippable)
+}
 
-    match ctx.key {
-        None => ItemMenuResult::NoResponse,
-        Some(key) => {
-            match key {
-                VirtualKeyCode::Escape => { ItemMenuResult::Cancel },
-                _ => ItemMenuResult::NoResponse
-            }
-        }
-    }
-
+fn draw_title_box(title_text: String, ctx: &mut Rltk, count: usize, y: i32) {
+    ctx.draw_box(15, y - 2, 31, (count + 3) as i32, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK));
+    ctx.print_color(18, y - 2, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), title_text);
+    ctx.print_color(18, y + count as i32 + 1, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), "Escape to exit/cancel");
 }
 
 fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
