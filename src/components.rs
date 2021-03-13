@@ -56,7 +56,7 @@ pub struct SufferDamage {
 }
 
 impl SufferDamage {
-    pub fn new_data(store: &mut WriteStorage<SufferDamage>, victim: Entity, amount: i32) {
+    pub fn new_damage(store: &mut WriteStorage<SufferDamage>, victim: Entity, amount: i32) {
         if let Some(damage) = store.get_mut(victim) {
             damage.amount.push(amount);
         } else {
@@ -71,11 +71,6 @@ impl SufferDamage {
 #[derive(Component, Debug)]
 pub struct Item {}
 
-#[derive(Component, Debug)]
-pub struct Potion {
-    pub heal_amount: i32,
-}
-
 #[derive(Component, Debug, Clone)]
 pub struct InBackpack {
     pub owner: Entity,
@@ -88,11 +83,30 @@ pub struct WantsToPickupItem {
 }
 
 #[derive(Component, Debug, Clone)]
-pub struct WantsToDrinkPotion {
-    pub potion: Entity,
+pub struct WantsToUseItem {
+    pub item: Entity,
+    pub target: Option<Point>,
 }
 
 #[derive(Component, Debug, Clone)]
 pub struct WantsToDropItem {
     pub item: Entity,
+}
+
+#[derive(Component, Debug)]
+pub struct Consumable {}
+
+#[derive(Component, Debug)]
+pub struct ProvidesHealing {
+    pub heal_amount: i32,
+}
+
+#[derive(Component, Debug)]
+pub struct Ranged {
+    pub range: i32,
+}
+
+#[derive(Component, Debug)]
+pub struct InflictsDamage {
+    pub damage: i32,
 }
