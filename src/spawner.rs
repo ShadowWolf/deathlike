@@ -1,6 +1,7 @@
 use crate::{
-    BlocksTile, CombatStats, Consumable, InflictsDamage, Item, Monster, Name, Player, Position,
-    ProvidesHealing, Ranged, Rect, Renderable, Rollable, Viewshed, MAP_WIDTH,
+    AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, InflictsDamage, Item, Monster,
+    Name, Player, Position, ProvidesHealing, Ranged, Rect, Renderable, Rollable, Viewshed,
+    MAP_WIDTH,
 };
 use rltk::{console, RandomNumberGenerator, RGB};
 use specs::prelude::*;
@@ -63,8 +64,8 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
         random_monster(ecs, x as i32, y as i32);
     }
 
-    if item_spawn_points.len() == 0 {
-        console::log("no items spawning this level");
+    if item_spawn_points.is_empty() {
+        console::log("no items spawning in this room");
     }
 
     for idx in item_spawn_points.iter() {
@@ -75,10 +76,12 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
 }
 
 fn random_item(ecs: &mut World, x: i32, y: i32) {
-    let roll = ecs.roll(1, 2);
+    let roll = ecs.roll(1, 4);
     console::log(format!("Spawning item # {} at ({}, {})", roll, x, y));
     match roll {
         1 => health_potion(ecs, x, y),
+        2 => fireball_scroll(ecs, x, y),
+        3 => confusion_scroll(ecs, x, y),
         _ => magic_missile_scroll(ecs, x, y),
     }
 }
@@ -175,5 +178,44 @@ fn magic_missile_scroll(ecs: &mut World, x: i32, y: i32) {
         .with(Consumable {})
         .with(Ranged { range: 6 })
         .with(InflictsDamage { damage: 8 })
+        .build();
+}
+
+fn fireball_scroll(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position { x, y })
+        .with(Renderable {
+            glyph: rltk::to_cp437(')'),
+            fg: RGB::named(rltk::ORANGE),
+            bg: RGB::named(rltk::BLACK),
+            render_order: 2,
+        })
+        .with(Name {
+            name: "Fireball Scroll".to_string(),
+        })
+        .with(Item {})
+        .with(Consumable {})
+        .with(Ranged { range: 6 })
+        .with(InflictsDamage { damage: 20 })
+        .with(AreaOfEffect { radius: 3 })
+        .build();
+}
+
+fn confusion_scroll(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position { x, y })
+        .with(Renderable {
+            glyph: rltk::to_cp437(')'),
+            fg: RGB::named(rltk::ORANGE),
+            bg: RGB::named(rltk::BLACK),
+            render_order: 2,
+        })
+        .with(Name {
+            name: "Confusion Scroll".to_string(),
+        })
+        .with(Item {})
+        .with(Consumable {})
+        .with(Ranged { range: 6 })
+        .with(Confusion { turns: 4 })
         .build();
 }

@@ -4,6 +4,7 @@ use specs::prelude::*;
 pub struct MapIndexingSystem {}
 
 impl<'a> System<'a> for MapIndexingSystem {
+    #[allow(clippy::type_complexity)]
     type SystemData = (
         WriteExpect<'a, Map>,
         ReadStorage<'a, Position>,

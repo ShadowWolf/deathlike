@@ -1,5 +1,5 @@
 use super::{CombatStats, GameLog, Map, Name, Player, Position};
-use crate::{InBackpack, State, Viewshed};
+use crate::{InBackpack, RunState, State, Viewshed};
 use rltk::{console, Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
 use specs::world::EntitiesRes;
@@ -9,6 +9,19 @@ pub enum ItemMenuResult {
     Cancel,
     NoResponse,
     Selected,
+}
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum MainMenuSelection {
+    NewGame,
+    LoadGame,
+    Quit,
+}
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum MainMenuResult {
+    NoSelection { selected: MainMenuSelection },
+    Selected { selected: MainMenuSelection },
 }
 
 pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
@@ -95,6 +108,108 @@ pub fn show_drop_item(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option
         find_and_print_equippable_items(ctx, &*player_entity, &names, &backpack, &entities, y);
 
     process_item_selection(ctx, count, items)
+}
+
+pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
+    let run_state = gs.ecs.fetch::<RunState>();
+
+    ctx.print_color_centered(
+        15,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        "Deathlike",
+    );
+
+    if let RunState::MainMenu {
+        menu_selection: selection,
+    } = *run_state
+    {
+        let selected_color = RGB::named(rltk::MAGENTA);
+        let idle_color = RGB::named(rltk::WHITE);
+        let background = RGB::named(rltk::BLACK);
+
+        ctx.print_color_centered(
+            24,
+            if selection == MainMenuSelection::NewGame {
+                selected_color
+            } else {
+                idle_color
+            },
+            background,
+            "Begin New Game",
+        );
+        ctx.print_color_centered(
+            25,
+            if selection == MainMenuSelection::LoadGame {
+                selected_color
+            } else {
+                idle_color
+            },
+            background,
+            "Load Game",
+        );
+        ctx.print_color_centered(
+            26,
+            if selection == MainMenuSelection::Quit {
+                selected_color
+            } else {
+                idle_color
+            },
+            background,
+            "Quit Game",
+        );
+
+        match ctx.key {
+            None => {
+                return MainMenuResult::NoSelection {
+                    selected: selection,
+                };
+            }
+            Some(key) => match key {
+                VirtualKeyCode::Escape => {
+                    return MainMenuResult::NoSelection {
+                        selected: selection,
+                    };
+                }
+                VirtualKeyCode::Up => {
+                    let new_selection;
+                    match selection {
+                        MainMenuSelection::NewGame => new_selection = MainMenuSelection::Quit,
+                        MainMenuSelection::LoadGame => new_selection = MainMenuSelection::NewGame,
+                        MainMenuSelection::Quit => new_selection = MainMenuSelection::LoadGame,
+                    }
+                    return MainMenuResult::NoSelection {
+                        selected: new_selection,
+                    };
+                }
+                VirtualKeyCode::Down => {
+                    let new_selection;
+                    match selection {
+                        MainMenuSelection::NewGame => new_selection = MainMenuSelection::LoadGame,
+                        MainMenuSelection::LoadGame => new_selection = MainMenuSelection::Quit,
+                        MainMenuSelection::Quit => new_selection = MainMenuSelection::NewGame,
+                    }
+                    return MainMenuResult::NoSelection {
+                        selected: new_selection,
+                    };
+                }
+                VirtualKeyCode::Return => {
+                    return MainMenuResult::Selected {
+                        selected: selection,
+                    };
+                }
+                _ => {
+                    return MainMenuResult::NoSelection {
+                        selected: selection,
+                    };
+                }
+            },
+        }
+    }
+
+    MainMenuResult::NoSelection {
+        selected: MainMenuSelection::NewGame,
+    }
 }
 
 fn process_item_selection(

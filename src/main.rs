@@ -35,7 +35,14 @@ pub enum RunState {
     MonsterTurn,
     ShowInventory,
     ShowDropItem,
-    ShowTargeting { range: i32, item: Entity },
+    ShowTargeting {
+        range: i32,
+        item: Entity,
+    },
+    MainMenu {
+        menu_selection: gui::MainMenuSelection,
+    },
+    SaveGame,
 }
 
 pub struct State {
@@ -62,7 +69,7 @@ impl State {
         let mut pickup_system = item_collection_system::ItemCollectionSystem {};
         pickup_system.run_now(&self.ecs);
 
-        let mut potion_system = inventory_system::ItemUseSystem {};
+        let mut potion_system = inventory_system::UseItemSystem {};
         potion_system.run_now(&self.ecs);
 
         let mut item_drop_system = item_drop_system::ItemDropSystem {};
@@ -101,13 +108,18 @@ impl State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
+        let mut new_run_state = self.determine_run_state();
+
         ctx.cls();
 
-        map::draw_map(&self.ecs, ctx);
+        match new_run_state {
+            RunState::MainMenu { .. } => {}
+            _ => {
+                map::draw_map(&self.ecs, ctx);
 
-        self.draw_interface(ctx);
-
-        let mut new_run_state = self.determine_run_state();
+                self.draw_interface(ctx);
+            }
+        }
 
         match new_run_state {
             RunState::PreRun => {
@@ -201,6 +213,28 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::MainMenu { .. } => {
+                let result = gui::show_main_menu(self, ctx);
+                match result {
+                    MainMenuResult::NoSelection { selected } => {
+                        new_run_state = RunState::MainMenu {
+                            menu_selection: selected,
+                        }
+                    }
+                    MainMenuResult::Selected { selected } => match selected {
+                        MainMenuSelection::NewGame => new_run_state = RunState::PreRun,
+                        MainMenuSelection::LoadGame => new_run_state = RunState::PreRun,
+                        MainMenuSelection::Quit => {
+                            ::std::process::exit(0);
+                        }
+                    },
+                }
+            }
+            RunState::SaveGame => {
+                new_run_state = RunState::MainMenu {
+                    menu_selection: MainMenuSelection::LoadGame,
+                }
+            }
         }
 
         self.store_run_state(&new_run_state);
@@ -234,6 +268,8 @@ fn main() -> rltk::BError {
     gs.ecs.register::<ProvidesHealing>();
     gs.ecs.register::<Ranged>();
     gs.ecs.register::<InflictsDamage>();
+    gs.ecs.register::<AreaOfEffect>();
+    gs.ecs.register::<Confusion>();
 
     let map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();
