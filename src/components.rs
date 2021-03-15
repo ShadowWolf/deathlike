@@ -75,24 +75,24 @@ impl SufferDamage {
 #[derive(Component, Debug, Serialize, Deserialize, Clone)]
 pub struct Item {}
 
-#[derive(Component, Debug, ConvertSaveload, Clone)]
+#[derive(Component, Debug, ConvertSaveload)]
 pub struct InBackpack {
     pub owner: Entity,
 }
 
-#[derive(Component, Debug, ConvertSaveload, Clone)]
+#[derive(Component, Debug, ConvertSaveload)]
 pub struct WantsToPickupItem {
     pub collected_by: Entity,
     pub item: Entity,
 }
 
-#[derive(Component, Debug, ConvertSaveload, Clone)]
+#[derive(Component, Debug, ConvertSaveload)]
 pub struct WantsToUseItem {
     pub item: Entity,
     pub target: Option<Point>,
 }
 
-#[derive(Component, Debug, ConvertSaveload, Clone)]
+#[derive(Component, Debug, ConvertSaveload)]
 pub struct WantsToDropItem {
     pub item: Entity,
 }

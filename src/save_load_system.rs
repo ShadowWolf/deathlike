@@ -42,6 +42,7 @@ macro_rules! deserialize_individual_items {
 }
 
 pub fn save_game(ecs: &mut World) {
+    rltk::console::log("Saving world");
     let map_copy = ecs.get_mut::<Map>().unwrap().clone();
     let save_helper = ecs
         .create_entity()
@@ -91,7 +92,14 @@ pub fn save_exists() -> bool {
     Path::new("./savegame.json").exists()
 }
 
+pub fn delete_saved_game() {
+    if save_exists() {
+        fs::remove_file("./savegame.json").expect("could not delete saved game file");
+    }
+}
+
 pub fn load_game(ecs: &mut World) {
+    rltk::console::log("Loading world");
     clear_game_world(ecs);
 
     let data = fs::read_to_string("./savegame.json").unwrap();

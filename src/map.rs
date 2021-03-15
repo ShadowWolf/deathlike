@@ -63,6 +63,7 @@ impl Map {
     }
 
     pub fn new_map_rooms_and_corridors() -> Map {
+        rltk::console::log("Creating a new map");
         let mut map = Map {
             tiles: vec![TileType::Wall; MAP_COUNT],
             rooms: Vec::new(),

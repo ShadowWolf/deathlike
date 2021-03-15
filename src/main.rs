@@ -229,6 +229,7 @@ impl GameState for State {
                         MainMenuSelection::LoadGame => {
                             save_load_system::load_game(&mut self.ecs);
                             new_run_state = RunState::AwaitingInput;
+                            delete_saved_game();
                         }
                         MainMenuSelection::Quit => {
                             ::std::process::exit(0);
@@ -285,7 +286,9 @@ fn main() -> rltk::BError {
     let map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();
 
-    gs.ecs.insert(RunState::PreRun);
+    gs.ecs.insert(RunState::MainMenu {
+        menu_selection: gui::MainMenuSelection::NewGame,
+    });
 
     gs.ecs.insert(Point::new(player_x, player_y));
     gs.ecs.insert(GameLog {

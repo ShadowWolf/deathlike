@@ -112,6 +112,7 @@ pub fn show_drop_item(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option
 
 pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
     let run_state = gs.ecs.fetch::<RunState>();
+    let show_load_game = save_exists();
 
     ctx.print_color_centered(
         15,
@@ -139,7 +140,7 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
             "Begin New Game",
         );
 
-        if save_exists() {
+        if show_load_game {
             ctx.print_color_centered(
                 25,
                 if selection == MainMenuSelection::LoadGame {
@@ -163,18 +164,14 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
             "Quit Game",
         );
 
-        match ctx.key {
-            None => {
-                return MainMenuResult::NoSelection {
-                    selected: selection,
-                };
-            }
+        return match ctx.key {
+            None => MainMenuResult::NoSelection {
+                selected: selection,
+            },
             Some(key) => match key {
-                VirtualKeyCode::Escape => {
-                    return MainMenuResult::NoSelection {
-                        selected: selection,
-                    };
-                }
+                VirtualKeyCode::Escape => MainMenuResult::NoSelection {
+                    selected: selection,
+                },
                 VirtualKeyCode::Up => {
                     let mut new_selection;
                     match selection {
@@ -183,13 +180,13 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                         MainMenuSelection::Quit => new_selection = MainMenuSelection::LoadGame,
                     }
 
-                    if new_selection == MainMenuSelection::LoadGame && !save_exists() {
+                    if new_selection == MainMenuSelection::LoadGame && !show_load_game {
                         new_selection = MainMenuSelection::NewGame;
                     }
 
-                    return MainMenuResult::NoSelection {
+                    MainMenuResult::NoSelection {
                         selected: new_selection,
-                    };
+                    }
                 }
                 VirtualKeyCode::Down => {
                     let mut new_selection;
@@ -199,26 +196,22 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                         MainMenuSelection::Quit => new_selection = MainMenuSelection::NewGame,
                     }
 
-                    if new_selection == MainMenuSelection::LoadGame && !save_exists() {
+                    if new_selection == MainMenuSelection::LoadGame && !show_load_game {
                         new_selection = MainMenuSelection::Quit;
                     }
 
-                    return MainMenuResult::NoSelection {
+                    MainMenuResult::NoSelection {
                         selected: new_selection,
-                    };
+                    }
                 }
-                VirtualKeyCode::Return => {
-                    return MainMenuResult::Selected {
-                        selected: selection,
-                    };
-                }
-                _ => {
-                    return MainMenuResult::NoSelection {
-                        selected: selection,
-                    };
-                }
+                VirtualKeyCode::Return => MainMenuResult::Selected {
+                    selected: selection,
+                },
+                _ => MainMenuResult::NoSelection {
+                    selected: selection,
+                },
             },
-        }
+        };
     }
 
     MainMenuResult::NoSelection {

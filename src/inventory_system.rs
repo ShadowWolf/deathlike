@@ -30,7 +30,7 @@ impl<'a> System<'a> for UseItemSystem {
             player_entity,
             mut log,
             entities,
-            wants_to_use_item,
+            mut wants_to_use_item,
             names,
             mut combat_stats,
             consumables,
@@ -83,6 +83,8 @@ impl<'a> System<'a> for UseItemSystem {
                 self.process_consumables(&entities, &consumables, item_to_use)
             }
         }
+
+        wants_to_use_item.clear();
     }
 }
 

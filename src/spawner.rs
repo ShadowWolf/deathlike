@@ -37,6 +37,7 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> Entity {
             defense: 2,
             power: 5,
         })
+        .marked::<SimpleMarker<Savable>>()
         .build()
 }
 
@@ -53,6 +54,10 @@ pub fn random_monster(ecs: &mut World, x: i32, y: i32) {
 }
 
 pub fn spawn_room(ecs: &mut World, room: &Rect) {
+    rltk::console::log(format!(
+        "Spawning room at ({},{}) to ({}, {})",
+        room.x1, room.y1, room.x2, room.y2
+    ));
     let mut monster_spawn_points: Vec<usize> = Vec::new();
     let mut item_spawn_points: Vec<usize> = Vec::new();
 
