@@ -12,6 +12,7 @@ mod monster_ai_system;
 mod player;
 mod rect;
 mod rollable;
+mod save_load_system;
 mod spawner;
 mod visibility_system;
 
@@ -22,10 +23,12 @@ pub use map::*;
 pub use player::*;
 pub use rect::*;
 pub use rollable::*;
+pub use save_load_system::*;
 pub use spawner::*;
 
 use rltk::{GameState, Point, Rltk};
 use specs::prelude::*;
+use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
@@ -223,7 +226,10 @@ impl GameState for State {
                     }
                     MainMenuResult::Selected { selected } => match selected {
                         MainMenuSelection::NewGame => new_run_state = RunState::PreRun,
-                        MainMenuSelection::LoadGame => new_run_state = RunState::PreRun,
+                        MainMenuSelection::LoadGame => {
+                            save_load_system::load_game(&mut self.ecs);
+                            new_run_state = RunState::AwaitingInput;
+                        }
                         MainMenuSelection::Quit => {
                             ::std::process::exit(0);
                         }
@@ -231,9 +237,10 @@ impl GameState for State {
                 }
             }
             RunState::SaveGame => {
+                save_load_system::save_game(&mut self.ecs);
                 new_run_state = RunState::MainMenu {
                     menu_selection: MainMenuSelection::LoadGame,
-                }
+                };
             }
         }
 
@@ -270,6 +277,10 @@ fn main() -> rltk::BError {
     gs.ecs.register::<InflictsDamage>();
     gs.ecs.register::<AreaOfEffect>();
     gs.ecs.register::<Confusion>();
+    gs.ecs.register::<SimpleMarker<Savable>>();
+    gs.ecs.register::<SerializationHelper>();
+
+    gs.ecs.insert(SimpleMarkerAllocator::<Savable>::new());
 
     let map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();

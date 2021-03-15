@@ -1,5 +1,5 @@
 use super::{CombatStats, GameLog, Map, Name, Player, Position};
-use crate::{InBackpack, RunState, State, Viewshed};
+use crate::{save_exists, InBackpack, RunState, State, Viewshed};
 use rltk::{console, Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
 use specs::world::EntitiesRes;
@@ -138,16 +138,20 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
             background,
             "Begin New Game",
         );
-        ctx.print_color_centered(
-            25,
-            if selection == MainMenuSelection::LoadGame {
-                selected_color
-            } else {
-                idle_color
-            },
-            background,
-            "Load Game",
-        );
+
+        if save_exists() {
+            ctx.print_color_centered(
+                25,
+                if selection == MainMenuSelection::LoadGame {
+                    selected_color
+                } else {
+                    idle_color
+                },
+                background,
+                "Load Game",
+            );
+        }
+
         ctx.print_color_centered(
             26,
             if selection == MainMenuSelection::Quit {
@@ -172,23 +176,33 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                     };
                 }
                 VirtualKeyCode::Up => {
-                    let new_selection;
+                    let mut new_selection;
                     match selection {
                         MainMenuSelection::NewGame => new_selection = MainMenuSelection::Quit,
                         MainMenuSelection::LoadGame => new_selection = MainMenuSelection::NewGame,
                         MainMenuSelection::Quit => new_selection = MainMenuSelection::LoadGame,
                     }
+
+                    if new_selection == MainMenuSelection::LoadGame && !save_exists() {
+                        new_selection = MainMenuSelection::NewGame;
+                    }
+
                     return MainMenuResult::NoSelection {
                         selected: new_selection,
                     };
                 }
                 VirtualKeyCode::Down => {
-                    let new_selection;
+                    let mut new_selection;
                     match selection {
                         MainMenuSelection::NewGame => new_selection = MainMenuSelection::LoadGame,
                         MainMenuSelection::LoadGame => new_selection = MainMenuSelection::Quit,
                         MainMenuSelection::Quit => new_selection = MainMenuSelection::NewGame,
                     }
+
+                    if new_selection == MainMenuSelection::LoadGame && !save_exists() {
+                        new_selection = MainMenuSelection::Quit;
+                    }
+
                     return MainMenuResult::NoSelection {
                         selected: new_selection,
                     };
