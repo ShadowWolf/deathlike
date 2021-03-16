@@ -10,6 +10,7 @@ mod map_indexing_system;
 mod melee_combat_system;
 mod monster_ai_system;
 mod player;
+mod random_table;
 mod rect;
 mod rollable;
 mod save_load_system;
@@ -21,11 +22,13 @@ pub use gamelog::*;
 pub use gui::*;
 pub use map::*;
 pub use player::*;
+pub use random_table::*;
 pub use rect::*;
 pub use rollable::*;
 pub use save_load_system::*;
 pub use spawner::*;
 
+use crate::TileType::Floor;
 use rltk::{GameState, Point, Rltk};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
@@ -46,6 +49,15 @@ pub enum RunState {
         menu_selection: gui::MainMenuSelection,
     },
     SaveGame,
+    NextLevel,
+    ShowRemoveItem,
+    GameOver,
+}
+
+enum FloorChangeType {
+    Desecend,
+    Ascend,
+    BackToStart,
 }
 
 pub struct State {
@@ -78,6 +90,9 @@ impl State {
         let mut item_drop_system = item_drop_system::ItemDropSystem {};
         item_drop_system.run_now(&self.ecs);
 
+        let mut item_remove_system = inventory_system::ItemRemoveSystem {};
+        item_remove_system.run_now(&self.ecs);
+
         self.ecs.maintain();
     }
 
@@ -106,6 +121,136 @@ impl State {
         }
 
         gui::draw_ui(&self.ecs, ctx);
+    }
+
+    fn fetch_entities_to_remove_on_level_change(&mut self) -> Vec<Entity> {
+        let entities = self.ecs.entities();
+        let player = self.ecs.read_storage::<Player>();
+        let backpack = self.ecs.read_storage::<InBackpack>();
+        let player_entity = self.ecs.fetch::<Entity>();
+        let equipped = self.ecs.read_storage::<Equipped>();
+
+        let mut to_delete: Vec<Entity> = Vec::new();
+        for entity in entities.join() {
+            let p = player.get(entity);
+            if p.is_some() {
+                continue;
+            }
+
+            let bp = backpack.get(entity);
+            if let Some(bp) = bp {
+                if bp.owner == *player_entity {
+                    continue;
+                }
+            }
+
+            let eq = equipped.get(entity);
+            if let Some(eq) = eq {
+                if eq.owner == *player_entity {
+                    continue;
+                }
+            }
+
+            to_delete.push(entity);
+        }
+
+        to_delete
+    }
+
+    fn create_new_world(&mut self, floor_action: FloorChangeType) -> Map {
+        let mut worldmap_resource = self.ecs.write_resource::<Map>();
+        let current_depth = worldmap_resource.depth;
+
+        let desired_depth;
+        match floor_action {
+            FloorChangeType::Desecend => {
+                desired_depth = current_depth + 1;
+            }
+            FloorChangeType::Ascend => {
+                desired_depth = i32::min(current_depth - 1, 1);
+            }
+            FloorChangeType::BackToStart => {
+                desired_depth = 1;
+            }
+        }
+
+        *worldmap_resource = Map::new_map_rooms_and_corridors(desired_depth);
+        worldmap_resource.clone()
+    }
+
+    fn go_to_next_level(&mut self) {
+        let to_delete = self.fetch_entities_to_remove_on_level_change();
+        for target in to_delete {
+            self.ecs
+                .delete_entity(target)
+                .expect("unable to delete entity during floor change");
+        }
+
+        let map = self.create_new_world(FloorChangeType::Desecend);
+
+        self.populate_rooms(&map);
+
+        let (player_x, player_y) = self.setup_player_point(map);
+
+        let player_entity = self.setup_player_position(player_x, player_y);
+
+        self.setup_player_viewshed(&player_entity);
+
+        let mut log = self.ecs.fetch_mut::<GameLog>();
+        log.entries
+            .push("You descend to the next level - suddenly your strength returns".to_string());
+
+        let mut combat_stats = self.ecs.write_storage::<CombatStats>();
+        let player_stats = combat_stats.get_mut(player_entity);
+        if let Some(player_stats) = player_stats {
+            player_stats.hp = i32::max(player_stats.hp, player_stats.max_hp / 2);
+        }
+    }
+
+    fn setup_player_viewshed(&mut self, player_entity: &Entity) {
+        let mut viewshed_components = self.ecs.write_storage::<Viewshed>();
+        let vs = viewshed_components.get_mut(*player_entity);
+        if let Some(vs) = vs {
+            vs.dirty = true;
+        }
+    }
+
+    fn setup_player_position(&mut self, player_x: i32, player_y: i32) -> Entity {
+        let mut position_components = self.ecs.write_storage::<Position>();
+        let player_entity = self.ecs.fetch::<Entity>();
+        let player_position_component = position_components.get_mut(*player_entity);
+        if let Some(player_position_component) = player_position_component {
+            player_position_component.x = player_x;
+            player_position_component.y = player_y;
+        }
+
+        *player_entity
+    }
+
+    fn setup_player_point(&mut self, map: Map) -> (i32, i32) {
+        let (player_x, player_y) = map.rooms[0].center();
+        let mut player_position = self.ecs.write_resource::<Point>();
+        *player_position = Point::new(player_x, player_y);
+        (player_x, player_y)
+    }
+
+    fn populate_rooms(&mut self, map: &Map) {
+        for room in map.rooms.iter().skip(1) {
+            spawner::spawn_room(&mut self.ecs, room, map.depth);
+        }
+    }
+
+    pub fn game_over_cleanup(&mut self) {
+        self.ecs.delete_all();
+
+        let map = self.create_new_world(FloorChangeType::BackToStart);
+        self.populate_rooms(&map);
+
+        let (player_x, player_y) = self.setup_player_point(map);
+
+        let player_entity = self.setup_player_position(player_x, player_y);
+
+        self.setup_player_viewshed(&player_entity);
     }
 }
 
@@ -243,6 +388,41 @@ impl GameState for State {
                     menu_selection: MainMenuSelection::LoadGame,
                 };
             }
+            RunState::NextLevel => {
+                self.go_to_next_level();
+                new_run_state = RunState::PreRun;
+            }
+            RunState::ShowRemoveItem => {
+                let (response, selection) = show_remove_item(self, ctx);
+                match response {
+                    ItemMenuResult::Cancel => new_run_state = RunState::AwaitingInput,
+                    ItemMenuResult::NoResponse => {}
+                    ItemMenuResult::Selected => {
+                        let item_entity = selection.unwrap();
+                        let mut intent = self.ecs.write_storage::<WantsToRemoveItem>();
+                        intent
+                            .insert(
+                                *self.ecs.fetch::<Entity>(),
+                                WantsToRemoveItem { item: item_entity },
+                            )
+                            .expect("Unable to insert remove item intent");
+
+                        new_run_state = RunState::PlayerTurn;
+                    }
+                }
+            }
+            RunState::GameOver => {
+                let result = gui::game_over(ctx);
+                match result {
+                    GameOverResult::NoSelection => {}
+                    GameOverResult::QuitToMenu => {
+                        self.game_over_cleanup();
+                        new_run_state = RunState::MainMenu {
+                            menu_selection: MainMenuSelection::NewGame,
+                        };
+                    }
+                }
+            }
         }
 
         self.store_run_state(&new_run_state);
@@ -280,10 +460,15 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Confusion>();
     gs.ecs.register::<SimpleMarker<Savable>>();
     gs.ecs.register::<SerializationHelper>();
+    gs.ecs.register::<Equippable>();
+    gs.ecs.register::<Equipped>();
+    gs.ecs.register::<MeleePowerBonus>();
+    gs.ecs.register::<DefenseBonus>();
+    gs.ecs.register::<WantsToRemoveItem>();
 
     gs.ecs.insert(SimpleMarkerAllocator::<Savable>::new());
 
-    let map = Map::new_map_rooms_and_corridors();
+    let map = Map::new_map_rooms_and_corridors(1);
     let (player_x, player_y) = map.rooms[0].center();
 
     gs.ecs.insert(RunState::MainMenu {
@@ -301,7 +486,7 @@ fn main() -> rltk::BError {
     gs.ecs.insert(player_entity);
 
     for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(&mut gs.ecs, room);
+        spawner::spawn_room(&mut gs.ecs, room, map.depth);
     }
 
     gs.ecs.insert(map);

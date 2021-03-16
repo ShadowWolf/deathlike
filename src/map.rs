@@ -8,6 +8,7 @@ use std::cmp::{max, min};
 pub enum TileType {
     Wall,
     Floor,
+    StairsDown,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -19,6 +20,7 @@ pub struct Map {
     pub revealed_tiles: Vec<bool>,
     pub visible_tiles: Vec<bool>,
     pub blocked: Vec<bool>,
+    pub depth: i32,
 
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
@@ -32,6 +34,10 @@ pub const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
 impl Map {
     pub fn xy_idx(&self, x: i32, y: i32) -> usize {
         (y as usize * self.width as usize) + x as usize
+    }
+
+    pub fn index_of(&self, point: &Point) -> usize {
+        self.xy_idx(point.x, point.y)
     }
 
     fn apply_room_to_map(&mut self, room: &Rect) {
@@ -62,7 +68,7 @@ impl Map {
         }
     }
 
-    pub fn new_map_rooms_and_corridors() -> Map {
+    pub fn new_map_rooms_and_corridors(new_depth: i32) -> Map {
         rltk::console::log("Creating a new map");
         let mut map = Map {
             tiles: vec![TileType::Wall; MAP_COUNT],
@@ -73,6 +79,7 @@ impl Map {
             visible_tiles: vec![false; MAP_COUNT],
             blocked: vec![false; MAP_COUNT],
             tile_content: vec![Vec::new(); MAP_COUNT],
+            depth: new_depth,
         };
 
         const MAX_ROOMS: i32 = 30;
@@ -113,6 +120,10 @@ impl Map {
                 map.rooms.push(new_room);
             }
         }
+
+        let (stairs_x, stairs_y) = map.rooms[map.rooms.len() - 1].center();
+        let stairs_index = map.xy_idx(stairs_x, stairs_y);
+        map.tiles[stairs_index] = TileType::StairsDown;
 
         map
     }
@@ -211,6 +222,10 @@ pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
                 TileType::Wall => {
                     glyph = rltk::to_cp437('#');
                     fg = RGB::from_f32(0.0, 1.0, 0.0);
+                }
+                TileType::StairsDown => {
+                    glyph = rltk::to_cp437('>');
+                    fg = RGB::from_f32(0., 1.0, 1.0);
                 }
             }
 

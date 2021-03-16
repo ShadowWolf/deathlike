@@ -1,8 +1,10 @@
 use crate::{
-    AreaOfEffect, CombatStats, Confusion, Consumable, Entity, GameLog, InflictsDamage, Map, Name,
-    ProvidesHealing, SufferDamage, WantsToUseItem,
+    AreaOfEffect, CombatStats, Confusion, Consumable, Entity, Equippable, Equipped, GameLog,
+    InBackpack, InflictsDamage, Map, Name, ProvidesHealing, SufferDamage, WantsToRemoveItem,
+    WantsToUseItem,
 };
 use specs::prelude::*;
+use specs::shred::DynamicSystemData;
 use specs::world::EntitiesRes;
 
 pub struct UseItemSystem {}
@@ -23,6 +25,9 @@ impl<'a> System<'a> for UseItemSystem {
         WriteStorage<'a, SufferDamage>,
         ReadStorage<'a, AreaOfEffect>,
         WriteStorage<'a, Confusion>,
+        ReadStorage<'a, Equippable>,
+        WriteStorage<'a, Equipped>,
+        WriteStorage<'a, InBackpack>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -40,12 +45,62 @@ impl<'a> System<'a> for UseItemSystem {
             mut suffer_damage,
             aoe_items,
             mut confusion,
+            equippable,
+            mut equipped,
+            mut backpack,
         ) = data;
 
         for (entity, item_to_use) in (&entities, &wants_to_use_item).join() {
             let mut used_item = false;
 
             let targets = self.determine_targets(&player_entity, &map, &aoe_items, item_to_use);
+
+            let item_equippable = equippable.get(item_to_use.item);
+            match item_equippable {
+                None => {}
+                Some(equip) => {
+                    let target_slot = equip.slot;
+                    let target = targets[0];
+
+                    let mut unequip: Vec<Entity> = Vec::new();
+                    for (item_entity, already_equipped, name) in
+                        (&entities, &equipped, &names).join()
+                    {
+                        if already_equipped.owner == target && already_equipped.slot == target_slot
+                        {
+                            unequip.push(item_entity);
+                            if target == *player_entity {
+                                log.entries.push(format!("You unequip {}", name.name));
+                            }
+                        }
+                    }
+
+                    for item in unequip.iter() {
+                        equipped.remove(*item);
+                        backpack
+                            .insert(*item, InBackpack { owner: target })
+                            .expect("unable to unequip item for equip");
+                    }
+
+                    equipped
+                        .insert(
+                            item_to_use.item,
+                            Equipped {
+                                owner: target,
+                                slot: target_slot,
+                            },
+                        )
+                        .expect("unable to equip item");
+                    backpack.remove(item_to_use.item);
+
+                    if target == *player_entity {
+                        log.entries.push(format!(
+                            "You equip {}",
+                            names.get(item_to_use.item).unwrap().name
+                        ))
+                    }
+                }
+            }
 
             used_item |= self.process_healing_actions(
                 &*player_entity,
@@ -257,5 +312,29 @@ impl UseItemSystem {
         }
 
         used_item
+    }
+}
+
+pub struct ItemRemoveSystem {}
+
+impl<'a> System<'a> for ItemRemoveSystem {
+    type SystemData = (
+        Entities<'a>,
+        WriteStorage<'a, WantsToRemoveItem>,
+        WriteStorage<'a, Equipped>,
+        WriteStorage<'a, InBackpack>,
+    );
+
+    fn run(&mut self, data: Self::SystemData) {
+        let (entities, mut remove_item, mut equipped, mut backpack) = data;
+
+        for (entity, to_remove) in (&entities, &remove_item).join() {
+            equipped.remove(to_remove.item);
+            backpack
+                .insert(to_remove.item, InBackpack { owner: entity })
+                .expect("unable to place item in backpack");
+        }
+
+        remove_item.clear();
     }
 }

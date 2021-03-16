@@ -2,7 +2,7 @@ use super::{
     CombatStats, GameLog, Item, Map, Player, Position, RunState, State, Viewshed, WantsToMelee,
     MAP_HEIGHT, MAP_WIDTH,
 };
-use crate::WantsToPickupItem;
+use crate::{Monster, TileType, WantsToPickupItem};
 use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::prelude::*;
 use std::cmp::{max, min};
@@ -74,11 +74,64 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             VirtualKeyCode::I => return RunState::ShowInventory,
             VirtualKeyCode::D => return RunState::ShowDropItem,
             VirtualKeyCode::Escape => return RunState::SaveGame,
+            VirtualKeyCode::Numpad5 | VirtualKeyCode::Space => return skip_turn(&mut gs.ecs),
+            VirtualKeyCode::R => return RunState::ShowRemoveItem,
+            VirtualKeyCode::Period => {
+                if try_next_level(&mut gs.ecs) {
+                    return RunState::NextLevel;
+                }
+            }
             _ => return RunState::AwaitingInput,
         },
     }
 
     RunState::PlayerTurn
+}
+
+pub fn skip_turn(ecs: &mut World) -> RunState {
+    let player_entity = ecs.fetch::<Entity>();
+    let viewshed_components = ecs.read_storage::<Viewshed>();
+    let monsters = ecs.read_storage::<Monster>();
+
+    let map = ecs.fetch::<Map>();
+
+    let mut can_heal = true;
+    let viewshed = viewshed_components.get(*player_entity).unwrap();
+    for tile in viewshed.visible_tiles.iter() {
+        let i = map.index_of(tile);
+        for entity_id in map.tile_content[i].iter() {
+            let mob = monsters.get(*entity_id);
+            if mob.is_some() {
+                can_heal = false;
+            }
+        }
+
+        if !can_heal {
+            break;
+        }
+    }
+
+    if can_heal {
+        let mut combat_stats = ecs.write_storage::<CombatStats>();
+        let player_stats = combat_stats.get_mut(*player_entity).unwrap();
+        player_stats.hp = i32::min(player_stats.hp + 1, player_stats.max_hp);
+    }
+
+    RunState::PlayerTurn
+}
+
+pub fn try_next_level(ecs: &mut World) -> bool {
+    let player_position = ecs.fetch::<Point>();
+    let map = ecs.fetch::<Map>();
+    let player_index = map.xy_idx(player_position.x, player_position.y);
+    if map.tiles[player_index] == TileType::StairsDown {
+        true
+    } else {
+        let mut log = ecs.write_resource::<GameLog>();
+        log.entries
+            .push("There is no way to go down from here.".to_string());
+        false
+    }
 }
 
 fn get_item(ecs: &mut World) {
