@@ -1,5 +1,5 @@
 use super::{Map, Monster, Position, RunState, Viewshed};
-use crate::{Confusion, ParticleBuilder, WantsToMelee};
+use crate::{Confusion, EntityMoved, ParticleBuilder, WantsToMelee};
 use rltk::{Point, RGB};
 use specs::prelude::*;
 
@@ -19,6 +19,7 @@ impl<'a> System<'a> for MonsterAI {
         WriteStorage<'a, WantsToMelee>,
         WriteStorage<'a, Confusion>,
         WriteExpect<'a, ParticleBuilder>,
+        WriteStorage<'a, EntityMoved>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -34,6 +35,7 @@ impl<'a> System<'a> for MonsterAI {
             mut wants_to_melee,
             mut confused,
             mut particle_builder,
+            mut entity_moved,
         ) = data;
 
         if *run_state != RunState::MonsterTurn {
@@ -87,6 +89,10 @@ impl<'a> System<'a> for MonsterAI {
                     let new_idx = map.xy_idx(pos.x, pos.y);
                     map.blocked[new_idx] = true;
                     viewshed.dirty = true;
+
+                    entity_moved
+                        .insert(entity, EntityMoved {})
+                        .expect("unable to insert movement for mob");
                 }
             }
         }

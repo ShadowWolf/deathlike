@@ -1,7 +1,8 @@
 use crate::{
-    AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenseBonus, EquipmentSlot,
-    Equippable, InflictsDamage, Item, MagicMapper, MeleePowerBonus, Monster, Name, Player,
-    Position, ProvidesHealing, RandomTable, Ranged, Rect, Renderable, Savable, Viewshed, MAP_WIDTH,
+    AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenseBonus, EntryTrigger,
+    EquipmentSlot, Equippable, Hidden, InflictsDamage, Item, MagicMapper, MeleePowerBonus, Monster,
+    Name, Player, Position, ProvidesHealing, RandomTable, Ranged, Rect, Renderable, Savable,
+    SingleActivation, Viewshed, MAP_WIDTH,
 };
 use rltk::{RandomNumberGenerator, RGB};
 use specs::prelude::*;
@@ -75,6 +76,7 @@ pub fn spawn_room(ecs: &mut World, room: &Rect, map_depth: i32) {
             "Longsword" => longsword(ecs, x, y),
             "Tower Shield" => tower_shield(ecs, x, y),
             "Magic Mapping Scroll" => magic_mapper(ecs, x, y),
+            "Bear Trap" => bear_trap(ecs, x, y),
             _ => {}
         }
     }
@@ -93,6 +95,7 @@ fn room_table(map_depth: i32) -> RandomTable {
         .add("Longsword", map_depth - 1)
         .add("Tower Shield", map_depth - 1)
         .add("Magic Mapping Scroll", 2)
+        .add("Bear Trap", 2)
 }
 
 fn determine_spawn_points(
@@ -344,6 +347,26 @@ fn magic_mapper(ecs: &mut World, x: i32, y: i32) {
         .with(Item {})
         .with(MagicMapper {})
         .with(Consumable {})
+        .marked::<SimpleMarker<Savable>>()
+        .build();
+}
+
+fn bear_trap(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position { x, y })
+        .with(Renderable {
+            glyph: rltk::to_cp437('^'),
+            fg: RGB::named(rltk::RED),
+            bg: RGB::named(rltk::BLACK),
+            render_order: 2,
+        })
+        .with(Name {
+            name: "Bear Trap".to_string(),
+        })
+        .with(Hidden {})
+        .with(EntryTrigger {})
+        .with(InflictsDamage { damage: 6 })
+        .with(SingleActivation {})
         .marked::<SimpleMarker<Savable>>()
         .build();
 }

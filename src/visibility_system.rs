@@ -1,5 +1,6 @@
 use super::{Map, Player, Position, Viewshed};
-use rltk::{field_of_view, Point};
+use crate::{GameLog, Hidden, Name};
+use rltk::{field_of_view, Point, RandomNumberGenerator};
 use specs::prelude::*;
 
 pub struct VisibilitySystem {}
@@ -11,10 +12,14 @@ impl<'a> System<'a> for VisibilitySystem {
         WriteStorage<'a, Viewshed>,
         WriteStorage<'a, Position>,
         ReadStorage<'a, Player>,
+        WriteStorage<'a, Hidden>,
+        WriteExpect<'a, RandomNumberGenerator>,
+        ReadStorage<'a, Name>,
+        WriteExpect<'a, GameLog>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut map, entities, mut viewshed, pos, player) = data;
+        let (mut map, entities, mut viewshed, pos, player, mut hidden, mut rng, names, log) = data;
 
         for (ent, viewshed, pos) in (&entities, &mut viewshed, &pos).join() {
             if viewshed.dirty {
@@ -36,6 +41,19 @@ impl<'a> System<'a> for VisibilitySystem {
                         let idx = map.xy_idx(vis.x, vis.y);
                         map.revealed_tiles[idx] = true;
                         map.visible_tiles[idx] = true;
+
+                        for t in map.tile_content[idx].iter() {
+                            let hidden_item = hidden.get(*t);
+                            if hidden_item.is_some() {
+                                if rng.roll_dice(1, 24) == 1 {
+                                    let name = names.get(*t);
+                                    if let Some(name) = name {
+                                        log.entries.push(format!("You spotted a {}", name.name))
+                                    }
+                                    hidden.remove(*t);
+                                }
+                            }
+                        }
                     }
                 }
             }

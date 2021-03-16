@@ -2,7 +2,7 @@ use super::{
     CombatStats, GameLog, Item, Map, Player, Position, RunState, State, Viewshed, WantsToMelee,
     MAP_HEIGHT, MAP_WIDTH,
 };
-use crate::{Monster, TileType, WantsToPickupItem};
+use crate::{EntityMoved, Monster, TileType, WantsToPickupItem};
 use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::prelude::*;
 use std::cmp::{max, min};
@@ -15,6 +15,7 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     let entities = ecs.entities();
     let mut wants_to_melee = ecs.write_storage::<WantsToMelee>();
     let map = ecs.fetch::<Map>();
+    let mut entity_moved = ecs.write_storage::<EntityMoved>();
 
     for (entity, _player, pos, viewshed) in
         (&entities, &players, &mut positions, &mut viewsheds).join()
@@ -45,6 +46,10 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
             player_position.y = pos.y;
 
             viewshed.dirty = true;
+
+            entity_moved
+                .insert(entity, EntityMoved {})
+                .expect("unable to insert move record");
         }
     }
 }

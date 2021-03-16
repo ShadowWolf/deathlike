@@ -16,6 +16,7 @@ mod rect;
 mod rollable;
 mod save_load_system;
 mod spawner;
+mod trigger_system;
 mod visibility_system;
 
 pub use components::*;
@@ -29,6 +30,7 @@ pub use rect::*;
 pub use rollable::*;
 pub use save_load_system::*;
 pub use spawner::*;
+pub use trigger_system::*;
 
 use rltk::{GameState, Point, Rltk};
 use specs::prelude::*;
@@ -77,6 +79,9 @@ impl State {
         let mut mob = monster_ai_system::MonsterAI {};
         mob.run_now(&self.ecs);
 
+        let mut triggers = trigger_system::TriggerSystem {};
+        triggers.run_now(&self.ecs);
+
         let mut map_index = map_indexing_system::MapIndexingSystem {};
         map_index.run_now(&self.ecs);
 
@@ -117,11 +122,14 @@ impl State {
     fn draw_interface(&mut self, ctx: &mut Rltk) {
         let positions = self.ecs.read_storage::<Position>();
         let renderables = self.ecs.read_storage::<Renderable>();
+        let hidden = self.ecs.read_storage::<Hidden>();
         let map = self.ecs.fetch::<Map>();
 
-        let mut renderable_objects = (&positions, &renderables).join().collect::<Vec<_>>();
+        let mut renderable_objects = (&positions, &renderables, !&hidden)
+            .join()
+            .collect::<Vec<_>>();
         renderable_objects.sort_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order));
-        for (pos, render) in renderable_objects.iter() {
+        for (pos, render, _hidden) in renderable_objects.iter() {
             let idx = map.xy_idx(pos.x, pos.y);
             if map.visible_tiles[idx] {
                 ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
@@ -465,6 +473,39 @@ fn main() -> rltk::BError {
 
     let mut gs = State { ecs: World::new() };
 
+    register_components(&mut gs);
+
+    gs.ecs.insert(SimpleMarkerAllocator::<Savable>::new());
+
+    let map = Map::new_map_rooms_and_corridors(1);
+    let (player_x, player_y) = map.rooms[0].center();
+
+    gs.ecs.insert(RunState::MainMenu {
+        menu_selection: gui::MainMenuSelection::NewGame,
+    });
+
+    gs.ecs.insert(Point::new(player_x, player_y));
+    gs.ecs.insert(GameLog {
+        entries: vec!["Welcome to DeathLike".to_string()],
+    });
+
+    let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
+    gs.ecs.insert(rltk::RandomNumberGenerator::new());
+
+    gs.ecs.insert(player_entity);
+
+    for room in map.rooms.iter().skip(1) {
+        spawner::spawn_room(&mut gs.ecs, room, map.depth);
+    }
+
+    gs.ecs.insert(map);
+
+    gs.ecs.insert(ParticleBuilder::new());
+
+    rltk::main_loop(context, gs)
+}
+
+fn register_components(gs: &mut State) {
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
@@ -495,33 +536,8 @@ fn main() -> rltk::BError {
     gs.ecs.register::<WantsToRemoveItem>();
     gs.ecs.register::<ParticleLifetime>();
     gs.ecs.register::<MagicMapper>();
-
-    gs.ecs.insert(SimpleMarkerAllocator::<Savable>::new());
-
-    let map = Map::new_map_rooms_and_corridors(1);
-    let (player_x, player_y) = map.rooms[0].center();
-
-    gs.ecs.insert(RunState::MainMenu {
-        menu_selection: gui::MainMenuSelection::NewGame,
-    });
-
-    gs.ecs.insert(Point::new(player_x, player_y));
-    gs.ecs.insert(GameLog {
-        entries: vec!["Welcome to DeathLike".to_string()],
-    });
-
-    let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
-    gs.ecs.insert(rltk::RandomNumberGenerator::new());
-
-    gs.ecs.insert(player_entity);
-
-    for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(&mut gs.ecs, room, map.depth);
-    }
-
-    gs.ecs.insert(map);
-
-    gs.ecs.insert(ParticleBuilder::new());
-
-    rltk::main_loop(context, gs)
+    gs.ecs.register::<Hidden>();
+    gs.ecs.register::<EntryTrigger>();
+    gs.ecs.register::<EntityMoved>();
+    gs.ecs.register::<SingleActivation>();
 }

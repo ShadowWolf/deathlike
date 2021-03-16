@@ -187,3 +187,15 @@ pub struct ParticleLifetime {
 
 #[derive(Component, Debug, Serialize, Deserialize, Clone)]
 pub struct MagicMapper {}
+
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct Hidden {}
+
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct EntryTrigger {}
+
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct EntityMoved {}
+
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct SingleActivation {}

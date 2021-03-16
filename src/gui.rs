@@ -1,5 +1,5 @@
 use super::{CombatStats, GameLog, Map, Name, Player, Position};
-use crate::{save_exists, Equipped, InBackpack, ItemHasOwner, RunState, State, Viewshed};
+use crate::{save_exists, Equipped, Hidden, InBackpack, ItemHasOwner, RunState, State, Viewshed};
 use rltk::{console, Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
 use specs::world::EntitiesRes;
@@ -380,6 +380,7 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
     let map = ecs.fetch::<Map>();
     let names = ecs.read_storage::<Name>();
     let positions = ecs.read_storage::<Position>();
+    let hidden = ecs.read_storage::<Hidden>();
 
     let mouse_pos = ctx.mouse_pos();
     if mouse_pos.0 >= map.width || mouse_pos.1 >= map.height {
@@ -387,7 +388,7 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
     }
 
     let mut tooltip: Vec<String> = Vec::new();
-    for (name, position) in (&names, &positions).join() {
+    for (name, position, _h) in (&names, &positions, &hidden).join() {
         let idx = map.xy_idx(position.x, position.y);
         if position.x == mouse_pos.0 && position.y == mouse_pos.1 && map.visible_tiles[idx] {
             tooltip.push(name.name.to_string());

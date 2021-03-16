@@ -87,7 +87,11 @@ pub fn save_game(ecs: &mut World) {
             DefenseBonus,
             WantsToRemoveItem,
             ParticleLifetime,
-            MagicMapper
+            MagicMapper,
+            Hidden,
+            EntryTrigger,
+            EntityMoved,
+            SingleActivation
         );
     }
 
@@ -191,7 +195,11 @@ fn load_game_resources(ecs: &mut World, deserializer: &mut Deserializer<StrRead>
         DefenseBonus,
         WantsToRemoveItem,
         ParticleLifetime,
-        MagicMapper
+        MagicMapper,
+        Hidden,
+        EntryTrigger,
+        EntityMoved,
+        SingleActivation
     );
 }
 
