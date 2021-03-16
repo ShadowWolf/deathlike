@@ -1,5 +1,6 @@
 use super::{gamelog::GameLog, CombatStats, Name, SufferDamage, WantsToMelee};
-use crate::{DefenseBonus, Equipped, MeleePowerBonus};
+use crate::{DefenseBonus, Equipped, MeleePowerBonus, ParticleBuilder, Position};
+use rltk::RGB;
 use specs::prelude::*;
 
 pub struct MeleeCombatSystem {}
@@ -53,6 +54,8 @@ impl<'a> System<'a> for MeleeCombatSystem {
         ReadStorage<'a, MeleePowerBonus>,
         ReadStorage<'a, DefenseBonus>,
         ReadStorage<'a, Equipped>,
+        WriteExpect<'a, ParticleBuilder>,
+        ReadStorage<'a, Position>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -66,6 +69,8 @@ impl<'a> System<'a> for MeleeCombatSystem {
             melee_bonus,
             defense_bonus,
             equipped,
+            mut particle_builder,
+            positions,
         ) = data;
 
         for (entity, wants_melee, name, stats) in
@@ -77,7 +82,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
 
                 let target_stats = combat_stats.get(wants_melee.target).unwrap();
                 if target_stats.hp > 0 {
-                    let defense = self.determine_defense_bonus(
+                    let block = self.determine_defense_bonus(
                         &wants_melee.target,
                         &entities,
                         &defense_bonus,
@@ -85,9 +90,22 @@ impl<'a> System<'a> for MeleeCombatSystem {
                     );
 
                     let target_name = names.get(wants_melee.target).unwrap();
+
+                    let pos = positions.get(wants_melee.target);
+                    if let Some(pos) = pos {
+                        particle_builder.request(
+                            pos.x,
+                            pos.y,
+                            RGB::named(rltk::ORANGE),
+                            RGB::named(rltk::BLACK),
+                            rltk::to_cp437('‼'),
+                            200.0,
+                        );
+                    }
+
                     let damage = i32::max(
                         0,
-                        (stats.power + attack_power) - (target_stats.defense + defense),
+                        (stats.attack_power + attack_power) - (target_stats.block + block),
                     );
 
                     if damage == 0 {

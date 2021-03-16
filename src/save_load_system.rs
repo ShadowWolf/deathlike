@@ -85,7 +85,9 @@ pub fn save_game(ecs: &mut World) {
             Equipped,
             MeleePowerBonus,
             DefenseBonus,
-            WantsToRemoveItem
+            WantsToRemoveItem,
+            ParticleLifetime,
+            MagicMapper
         );
     }
 
@@ -187,7 +189,9 @@ fn load_game_resources(ecs: &mut World, deserializer: &mut Deserializer<StrRead>
         Equipped,
         MeleePowerBonus,
         DefenseBonus,
-        WantsToRemoveItem
+        WantsToRemoveItem,
+        ParticleLifetime,
+        MagicMapper
     );
 }
 

@@ -1,13 +1,33 @@
 use crate::{
-    AreaOfEffect, CombatStats, Confusion, Consumable, Entity, Equippable, Equipped, GameLog,
-    InBackpack, InflictsDamage, Map, Name, ProvidesHealing, SufferDamage, WantsToRemoveItem,
-    WantsToUseItem,
+    AreaOfEffect, CombatStats, Confusion, Consumable, Entity, EquipmentSlot, Equippable, Equipped,
+    GameLog, InBackpack, InflictsDamage, MagicMapper, Map, Name, ParticleBuilder, Position,
+    ProvidesHealing, RunState, SufferDamage, WantsToRemoveItem, WantsToUseItem,
 };
+use rltk::RGB;
 use specs::prelude::*;
-use specs::shred::DynamicSystemData;
 use specs::world::EntitiesRes;
 
 pub struct UseItemSystem {}
+
+impl UseItemSystem {
+    fn process_magic_map_actions(
+        &self,
+        log: &mut WriteExpect<GameLog>,
+        item_to_use: &WantsToUseItem,
+        magic_mappers: &ReadStorage<MagicMapper>,
+        run_state: &mut WriteExpect<RunState>,
+    ) -> bool {
+        let is_mapper = magic_mappers.get(item_to_use.item);
+        if is_mapper.is_some() {
+            log.entries.push("All is revealed to you!".to_string());
+            **run_state = RunState::MagicMapReveal { row: 0 };
+
+            return true;
+        }
+
+        false
+    }
+}
 
 impl<'a> System<'a> for UseItemSystem {
     #[allow(clippy::type_complexity)]
@@ -28,8 +48,13 @@ impl<'a> System<'a> for UseItemSystem {
         ReadStorage<'a, Equippable>,
         WriteStorage<'a, Equipped>,
         WriteStorage<'a, InBackpack>,
+        WriteExpect<'a, ParticleBuilder>,
+        ReadStorage<'a, Position>,
+        ReadStorage<'a, MagicMapper>,
+        WriteExpect<'a, RunState>,
     );
 
+    #[allow(clippy::cognitive_complexity)]
     fn run(&mut self, data: Self::SystemData) {
         let (
             player_entity,
@@ -48,62 +73,45 @@ impl<'a> System<'a> for UseItemSystem {
             equippable,
             mut equipped,
             mut backpack,
+            mut particle_builder,
+            positions,
+            magic_mappers,
+            mut run_state,
         ) = data;
 
         for (entity, item_to_use) in (&entities, &wants_to_use_item).join() {
             let mut used_item = false;
 
-            let targets = self.determine_targets(&player_entity, &map, &aoe_items, item_to_use);
+            let targets = self.determine_targets(
+                &player_entity,
+                &map,
+                &aoe_items,
+                item_to_use,
+                &positions,
+                &mut particle_builder,
+            );
 
-            let item_equippable = equippable.get(item_to_use.item);
-            match item_equippable {
-                None => {}
-                Some(equip) => {
-                    let target_slot = equip.slot;
-                    let target = targets[0];
+            self.process_equip_actions(
+                &player_entity,
+                &mut log,
+                &entities,
+                &names,
+                &equippable,
+                &mut equipped,
+                &mut backpack,
+                item_to_use,
+                &targets,
+            );
 
-                    let mut unequip: Vec<Entity> = Vec::new();
-                    for (item_entity, already_equipped, name) in
-                        (&entities, &equipped, &names).join()
-                    {
-                        if already_equipped.owner == target && already_equipped.slot == target_slot
-                        {
-                            unequip.push(item_entity);
-                            if target == *player_entity {
-                                log.entries.push(format!("You unequip {}", name.name));
-                            }
-                        }
-                    }
-
-                    for item in unequip.iter() {
-                        equipped.remove(*item);
-                        backpack
-                            .insert(*item, InBackpack { owner: target })
-                            .expect("unable to unequip item for equip");
-                    }
-
-                    equipped
-                        .insert(
-                            item_to_use.item,
-                            Equipped {
-                                owner: target,
-                                slot: target_slot,
-                            },
-                        )
-                        .expect("unable to equip item");
-                    backpack.remove(item_to_use.item);
-
-                    if target == *player_entity {
-                        log.entries.push(format!(
-                            "You equip {}",
-                            names.get(item_to_use.item).unwrap().name
-                        ))
-                    }
-                }
-            }
+            used_item |= self.process_magic_map_actions(
+                &mut log,
+                item_to_use,
+                &magic_mappers,
+                &mut run_state,
+            );
 
             used_item |= self.process_healing_actions(
-                &*player_entity,
+                &player_entity,
                 &mut log,
                 &names,
                 &mut combat_stats,
@@ -111,10 +119,12 @@ impl<'a> System<'a> for UseItemSystem {
                 &entity,
                 item_to_use,
                 &targets,
+                &positions,
+                &mut particle_builder,
             );
 
             used_item |= self.process_damage_actions(
-                &*player_entity,
+                &player_entity,
                 &mut log,
                 &names,
                 &damaging_items,
@@ -122,16 +132,20 @@ impl<'a> System<'a> for UseItemSystem {
                 &entity,
                 item_to_use,
                 &targets,
+                &positions,
+                &mut particle_builder,
             );
 
             used_item |= self.process_confusion_actions(
-                &*player_entity,
+                &player_entity,
                 &mut log,
                 &names,
                 &mut confusion,
                 &entity,
                 item_to_use,
                 &targets,
+                &positions,
+                &mut particle_builder,
             );
 
             if used_item {
@@ -150,6 +164,8 @@ impl UseItemSystem {
         map: &Map,
         aoe_items: &ReadStorage<AreaOfEffect>,
         item_to_use: &WantsToUseItem,
+        positions: &ReadStorage<Position>,
+        particle_builder: &mut ParticleBuilder,
     ) -> Vec<Entity> {
         let mut targets: Vec<Entity> = Vec::new();
 
@@ -178,6 +194,17 @@ impl UseItemSystem {
                             let index = map.xy_idx(tile_index.x, tile_index.y);
                             for mob in map.tile_content[index].iter() {
                                 targets.push(*mob);
+                                let pos = positions.get(*mob);
+                                if let Some(pos) = pos {
+                                    particle_builder.request(
+                                        pos.x,
+                                        pos.y,
+                                        RGB::named(rltk::ORANGE),
+                                        RGB::named(rltk::BLACK),
+                                        rltk::to_cp437('░'),
+                                        200.0,
+                                    );
+                                }
                             }
                         }
                     }
@@ -197,6 +224,8 @@ impl UseItemSystem {
         entity: &Entity,
         item_to_use: &WantsToUseItem,
         targets: &[Entity],
+        positions: &ReadStorage<Position>,
+        particle_builder: &mut ParticleBuilder,
     ) -> bool {
         let damaging_item = damaging_items.get(item_to_use.item);
         let mut used_item = false;
@@ -212,6 +241,18 @@ impl UseItemSystem {
                             "You use {} on {} and inflict {} damage",
                             player_name.name, item_name.name, damage.damage
                         ));
+                    }
+
+                    let pos = positions.get(*mob);
+                    if let Some(pos) = pos {
+                        particle_builder.request(
+                            pos.x,
+                            pos.y,
+                            RGB::named(rltk::RED),
+                            RGB::named(rltk::BLACK),
+                            rltk::to_cp437('‼'),
+                            200.0,
+                        );
                     }
                     used_item = true;
                 }
@@ -244,6 +285,8 @@ impl UseItemSystem {
         entity: &Entity,
         item_to_use: &WantsToUseItem,
         targets: &[Entity],
+        positions: &ReadStorage<Position>,
+        particle_builder: &mut ParticleBuilder,
     ) -> bool {
         let mut used_item = false;
         let healing_item = healing_items.get(item_to_use.item);
@@ -264,6 +307,18 @@ impl UseItemSystem {
                                 ));
                             }
                             used_item = true;
+
+                            let pos = positions.get(*target);
+                            if let Some(pos) = pos {
+                                particle_builder.request(
+                                    pos.x,
+                                    pos.y,
+                                    RGB::named(rltk::GREEN),
+                                    RGB::named(rltk::BLACK),
+                                    rltk::to_cp437('♥'),
+                                    200.0,
+                                );
+                            }
                         }
                     }
                 }
@@ -283,6 +338,8 @@ impl UseItemSystem {
         entity: &Entity,
         item_to_use: &WantsToUseItem,
         targets: &[Entity],
+        positions: &ReadStorage<Position>,
+        particle_builder: &mut ParticleBuilder,
     ) -> bool {
         let mut confused_mobs = Vec::new();
         let causes_confusion = confusion.get(item_to_use.item);
@@ -301,6 +358,18 @@ impl UseItemSystem {
                         ));
                     }
                     used_item = true;
+
+                    let pos = positions.get(*mob);
+                    if let Some(pos) = pos {
+                        particle_builder.request(
+                            pos.x,
+                            pos.y,
+                            RGB::named(rltk::MAGENTA),
+                            RGB::named(rltk::BLACK),
+                            rltk::to_cp437('?'),
+                            200.0,
+                        );
+                    }
                 }
             }
         }
@@ -336,5 +405,88 @@ impl<'a> System<'a> for ItemRemoveSystem {
         }
 
         remove_item.clear();
+    }
+}
+
+impl UseItemSystem {
+    fn find_items_to_unequip(
+        &self,
+        player_entity: &Entity,
+        log: &mut WriteExpect<GameLog>,
+        entities: &Entities,
+        names: &ReadStorage<Name>,
+        equipped: &mut WriteStorage<Equipped>,
+        target_slot: EquipmentSlot,
+        target: Entity,
+    ) -> Vec<Entity> {
+        let mut unequip: Vec<Entity> = Vec::new();
+        for (item_entity, already_equipped, name) in (entities, equipped, names).join() {
+            if already_equipped.owner == target && already_equipped.slot == target_slot {
+                unequip.push(item_entity);
+                if target == *player_entity {
+                    log.entries.push(format!("You unequip {}", name.name));
+                }
+            }
+        }
+        unequip
+    }
+}
+
+impl UseItemSystem {
+    fn process_equip_actions(
+        &mut self,
+        player_entity: &Entity,
+        mut log: &mut WriteExpect<GameLog>,
+        entities: &Entities,
+        names: &ReadStorage<Name>,
+        equippable: &ReadStorage<Equippable>,
+        mut equipped: &mut WriteStorage<Equipped>,
+        backpack: &mut WriteStorage<InBackpack>,
+        item_to_use: &WantsToUseItem,
+        targets: &Vec<Entity>,
+    ) {
+        let item_equippable = equippable.get(item_to_use.item);
+        match item_equippable {
+            None => {}
+            Some(equip) => {
+                let target_slot = equip.slot;
+                let target = targets[0];
+
+                let unequip = self.find_items_to_unequip(
+                    &player_entity,
+                    &mut log,
+                    &entities,
+                    &names,
+                    &mut equipped,
+                    target_slot,
+                    target,
+                );
+
+                for item in unequip.iter() {
+                    equipped.remove(*item);
+                    backpack
+                        .insert(*item, InBackpack { owner: target })
+                        .expect("unable to unequip item for equip");
+                }
+
+                equipped
+                    .insert(
+                        item_to_use.item,
+                        Equipped {
+                            owner: target,
+                            slot: target_slot,
+                        },
+                    )
+                    .expect("unable to equip item");
+                backpack.remove(item_to_use.item);
+
+                if target == *player_entity {
+                    log.entries.push(format!(
+                        "You equip {}",
+                        names.get(item_to_use.item).unwrap().name
+                    ))
+                }
+            }
+        }
     }
 }

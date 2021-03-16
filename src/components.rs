@@ -45,8 +45,8 @@ pub struct BlocksTile {}
 pub struct CombatStats {
     pub max_hp: i32,
     pub hp: i32,
-    pub defense: i32,
-    pub power: i32,
+    pub block: i32,
+    pub attack_power: i32,
 }
 
 #[derive(Component, Debug, ConvertSaveload, Clone)]
@@ -179,3 +179,11 @@ pub struct DefenseBonus {
 pub struct WantsToRemoveItem {
     pub item: Entity,
 }
+
+#[derive(Component, Deserialize, Serialize, Clone)]
+pub struct ParticleLifetime {
+    pub lifetime_ms: f32,
+}
+
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct MagicMapper {}

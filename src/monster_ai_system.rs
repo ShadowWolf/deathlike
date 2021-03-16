@@ -1,6 +1,6 @@
 use super::{Map, Monster, Position, RunState, Viewshed};
-use crate::{Confusion, WantsToMelee};
-use rltk::Point;
+use crate::{Confusion, ParticleBuilder, WantsToMelee};
+use rltk::{Point, RGB};
 use specs::prelude::*;
 
 pub struct MonsterAI {}
@@ -18,6 +18,7 @@ impl<'a> System<'a> for MonsterAI {
         WriteStorage<'a, Position>,
         WriteStorage<'a, WantsToMelee>,
         WriteStorage<'a, Confusion>,
+        WriteExpect<'a, ParticleBuilder>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -32,6 +33,7 @@ impl<'a> System<'a> for MonsterAI {
             mut position,
             mut wants_to_melee,
             mut confused,
+            mut particle_builder,
         ) = data;
 
         if *run_state != RunState::MonsterTurn {
@@ -46,6 +48,15 @@ impl<'a> System<'a> for MonsterAI {
                 if c.turns < 1 {
                     confused.remove(entity);
                 }
+
+                particle_builder.request(
+                    pos.x,
+                    pos.y,
+                    RGB::named(rltk::MAGENTA),
+                    RGB::named(rltk::BLACK),
+                    rltk::to_cp437('?'),
+                    200.,
+                );
 
                 return;
             }

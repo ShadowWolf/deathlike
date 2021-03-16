@@ -9,6 +9,7 @@ mod map;
 mod map_indexing_system;
 mod melee_combat_system;
 mod monster_ai_system;
+mod particle_system;
 mod player;
 mod random_table;
 mod rect;
@@ -21,6 +22,7 @@ pub use components::*;
 pub use gamelog::*;
 pub use gui::*;
 pub use map::*;
+pub use particle_system::*;
 pub use player::*;
 pub use random_table::*;
 pub use rect::*;
@@ -28,7 +30,6 @@ pub use rollable::*;
 pub use save_load_system::*;
 pub use spawner::*;
 
-use crate::TileType::Floor;
 use rltk::{GameState, Point, Rltk};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
@@ -52,10 +53,14 @@ pub enum RunState {
     NextLevel,
     ShowRemoveItem,
     GameOver,
+    MagicMapReveal {
+        row: i32,
+    },
 }
 
 enum FloorChangeType {
     Desecend,
+    #[allow(dead_code)]
     Ascend,
     BackToStart,
 }
@@ -92,6 +97,9 @@ impl State {
 
         let mut item_remove_system = inventory_system::ItemRemoveSystem {};
         item_remove_system.run_now(&self.ecs);
+
+        let mut particle_system = particle_system::ParticleSpawnSystem {};
+        particle_system.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
@@ -259,6 +267,7 @@ impl GameState for State {
         let mut new_run_state = self.determine_run_state();
 
         ctx.cls();
+        remove_dead_particles(&mut self.ecs, ctx);
 
         match new_run_state {
             RunState::MainMenu { .. } => {}
@@ -281,7 +290,13 @@ impl GameState for State {
             RunState::PlayerTurn => {
                 self.run_systems();
                 self.ecs.maintain();
-                new_run_state = RunState::MonsterTurn;
+
+                match *self.ecs.fetch::<RunState>() {
+                    RunState::MagicMapReveal { .. } => {
+                        new_run_state = RunState::MagicMapReveal { row: 0 }
+                    }
+                    _ => new_run_state = RunState::MonsterTurn,
+                }
             }
             RunState::MonsterTurn => {
                 self.run_systems();
@@ -423,6 +438,19 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::MagicMapReveal { row } => {
+                let mut map = self.ecs.fetch_mut::<Map>();
+                for x in 0..MAP_WIDTH {
+                    let i = map.xy_idx(x as i32, row);
+                    map.revealed_tiles[i] = true;
+                }
+
+                if row as usize == MAP_HEIGHT - 1 {
+                    new_run_state = RunState::MonsterTurn;
+                } else {
+                    new_run_state = RunState::MagicMapReveal { row: row + 1 };
+                }
+            }
         }
 
         self.store_run_state(&new_run_state);
@@ -465,6 +493,8 @@ fn main() -> rltk::BError {
     gs.ecs.register::<MeleePowerBonus>();
     gs.ecs.register::<DefenseBonus>();
     gs.ecs.register::<WantsToRemoveItem>();
+    gs.ecs.register::<ParticleLifetime>();
+    gs.ecs.register::<MagicMapper>();
 
     gs.ecs.insert(SimpleMarkerAllocator::<Savable>::new());
 
@@ -490,6 +520,8 @@ fn main() -> rltk::BError {
     }
 
     gs.ecs.insert(map);
+
+    gs.ecs.insert(ParticleBuilder::new());
 
     rltk::main_loop(context, gs)
 }

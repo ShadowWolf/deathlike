@@ -1,7 +1,7 @@
 use crate::{
     AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenseBonus, EquipmentSlot,
-    Equippable, InflictsDamage, Item, MeleePowerBonus, Monster, Name, Player, Position,
-    ProvidesHealing, RandomTable, Ranged, Rect, Renderable, Rollable, Savable, Viewshed, MAP_WIDTH,
+    Equippable, InflictsDamage, Item, MagicMapper, MeleePowerBonus, Monster, Name, Player,
+    Position, ProvidesHealing, RandomTable, Ranged, Rect, Renderable, Savable, Viewshed, MAP_WIDTH,
 };
 use rltk::{RandomNumberGenerator, RGB};
 use specs::prelude::*;
@@ -35,8 +35,8 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> Entity {
         .with(CombatStats {
             max_hp: 30,
             hp: 30,
-            defense: 2,
-            power: 5,
+            block: 2,
+            attack_power: 5,
         })
         .marked::<SimpleMarker<Savable>>()
         .build()
@@ -74,6 +74,7 @@ pub fn spawn_room(ecs: &mut World, room: &Rect, map_depth: i32) {
             "Dagger" => dagger(ecs, x, y),
             "Longsword" => longsword(ecs, x, y),
             "Tower Shield" => tower_shield(ecs, x, y),
+            "Magic Mapping Scroll" => magic_mapper(ecs, x, y),
             _ => {}
         }
     }
@@ -91,6 +92,7 @@ fn room_table(map_depth: i32) -> RandomTable {
         .add("Dagger", 3)
         .add("Longsword", map_depth - 1)
         .add("Tower Shield", map_depth - 1)
+        .add("Magic Mapping Scroll", 2)
 }
 
 fn determine_spawn_points(
@@ -154,8 +156,8 @@ fn monster<S: ToString>(ecs: &mut World, x: i32, y: i32, glyph: rltk::FontCharTy
         .with(CombatStats {
             max_hp: 16,
             hp: 16,
-            defense: 1,
-            power: 4,
+            block: 1,
+            attack_power: 4,
         })
         .marked::<SimpleMarker<Savable>>()
         .build();
@@ -323,6 +325,25 @@ fn tower_shield(ecs: &mut World, x: i32, y: i32) {
             slot: EquipmentSlot::Shield,
         })
         .with(DefenseBonus { defense: 3 })
+        .marked::<SimpleMarker<Savable>>()
+        .build();
+}
+
+fn magic_mapper(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position { x, y })
+        .with(Renderable {
+            glyph: rltk::to_cp437(')'),
+            fg: RGB::named(rltk::CYAN3),
+            bg: RGB::named(rltk::BLACK),
+            render_order: 2,
+        })
+        .with(Name {
+            name: "Scroll of magic mapping".to_string(),
+        })
+        .with(Item {})
+        .with(MagicMapper {})
+        .with(Consumable {})
         .marked::<SimpleMarker<Savable>>()
         .build();
 }
