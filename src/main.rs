@@ -6,6 +6,7 @@ mod inventory_system;
 mod item_collection_system;
 mod item_drop_system;
 mod map;
+mod map_builders;
 mod map_indexing_system;
 mod melee_combat_system;
 mod monster_ai_system;
@@ -173,25 +174,37 @@ impl State {
         to_delete
     }
 
-    fn create_new_world(&mut self, floor_action: FloorChangeType) -> Map {
-        let mut worldmap_resource = self.ecs.write_resource::<Map>();
-        let current_depth = worldmap_resource.depth;
-
+    fn create_new_world(&mut self, floor_action: FloorChangeType) -> (Map, Position) {
         let desired_depth;
-        match floor_action {
-            FloorChangeType::Desecend => {
-                desired_depth = current_depth + 1;
+        let mut world_map;
+        let current_depth;
+        let player_start;
+
+        {
+            let mut worldmap_resource = self.ecs.write_resource::<Map>();
+            current_depth = worldmap_resource.depth;
+
+            match floor_action {
+                FloorChangeType::Desecend => {
+                    desired_depth = current_depth + 1;
+                }
+                FloorChangeType::Ascend => {
+                    desired_depth = i32::min(current_depth - 1, 1);
+                }
+                FloorChangeType::BackToStart => {
+                    desired_depth = 1;
+                }
             }
-            FloorChangeType::Ascend => {
-                desired_depth = i32::min(current_depth - 1, 1);
-            }
-            FloorChangeType::BackToStart => {
-                desired_depth = 1;
-            }
+
+            let (new_map, start) = map_builders::build_random_map(desired_depth);
+            *worldmap_resource = new_map;
+            player_start = start;
+            world_map = worldmap_resource.clone();
         }
 
-        *worldmap_resource = Map::new_map_rooms_and_corridors(desired_depth);
-        worldmap_resource.clone()
+        map_builders::spawn(&mut world_map, &mut self.ecs, desired_depth);
+
+        (world_map, player_start)
     }
 
     fn go_to_next_level(&mut self) {
@@ -202,15 +215,15 @@ impl State {
                 .expect("unable to delete entity during floor change");
         }
 
-        let map = self.create_new_world(FloorChangeType::Desecend);
+        let (mut map, player_start) = self.create_new_world(FloorChangeType::Desecend);
 
-        self.populate_rooms(&map);
+        self.populate_rooms(&mut map);
 
-        let (player_x, player_y) = self.setup_player_point(map);
+        let (player_x, player_y) = (player_start.x, player_start.y);
 
-        let player_entity = self.setup_player_position(player_x, player_y);
+        let player_entity = self.move_player_position(player_x, player_y);
 
-        self.setup_player_viewshed(&player_entity);
+        self.reset_player_viewshed(&player_entity);
 
         let mut log = self.ecs.fetch_mut::<GameLog>();
         log.entries
@@ -223,7 +236,7 @@ impl State {
         }
     }
 
-    fn setup_player_viewshed(&mut self, player_entity: &Entity) {
+    fn reset_player_viewshed(&mut self, player_entity: &Entity) {
         let mut viewshed_components = self.ecs.write_storage::<Viewshed>();
         let vs = viewshed_components.get_mut(*player_entity);
         if let Some(vs) = vs {
@@ -231,13 +244,16 @@ impl State {
         }
     }
 
-    fn setup_player_position(&mut self, player_x: i32, player_y: i32) -> Entity {
+    fn move_player_position(&mut self, player_x: i32, player_y: i32) -> Entity {
         let mut position_components = self.ecs.write_storage::<Position>();
         let player_entity = self.ecs.fetch::<Entity>();
         let player_position_component = position_components.get_mut(*player_entity);
         if let Some(player_position_component) = player_position_component {
             player_position_component.x = player_x;
             player_position_component.y = player_y;
+        } else {
+            rltk::console::log("Could not place player position");
+            panic!("Could not place player position component");
         }
 
         *player_entity
@@ -250,23 +266,33 @@ impl State {
         (player_x, player_y)
     }
 
-    fn populate_rooms(&mut self, map: &Map) {
-        for room in map.rooms.iter().skip(1) {
-            spawner::spawn_room(&mut self.ecs, room, map.depth);
-        }
+    fn populate_rooms(&mut self, map: &mut Map) {
+        map_builders::spawn(map, &mut self.ecs, map.depth);
     }
 
     pub fn game_over_cleanup(&mut self) {
         self.ecs.delete_all();
 
-        let map = self.create_new_world(FloorChangeType::BackToStart);
-        self.populate_rooms(&map);
+        let (mut map, player_position) = self.create_new_world(FloorChangeType::BackToStart);
+        self.populate_rooms(&mut map);
 
-        let (player_x, player_y) = self.setup_player_point(map);
+        let (player_x, player_y) = (player_position.x, player_position.y);
+        let player_entity;
+        {
+            player_entity = spawner::player(&mut self.ecs, player_x, player_y);
+            let mut player_position = self.ecs.write_resource::<Point>();
+            *player_position = Point::new(player_x, player_y);
+            let mut player_entity_writer = self.ecs.write_resource::<Entity>();
+            *player_entity_writer = player_entity;
+            let mut position_components = self.ecs.write_storage::<Position>();
+            let player_position = position_components.get_mut(player_entity);
+            if let Some(player_position) = player_position {
+                player_position.x = player_x;
+                player_position.y = player_y;
+            }
+        }
 
-        let player_entity = self.setup_player_position(player_x, player_y);
-
-        self.setup_player_viewshed(&player_entity);
+        self.reset_player_viewshed(&player_entity);
     }
 }
 
@@ -477,8 +503,8 @@ fn main() -> rltk::BError {
 
     gs.ecs.insert(SimpleMarkerAllocator::<Savable>::new());
 
-    let map = Map::new_map_rooms_and_corridors(1);
-    let (player_x, player_y) = map.rooms[0].center();
+    let (mut map, player_position) = map_builders::build_random_map(1);
+    let (player_x, player_y) = (player_position.x, player_position.y);
 
     gs.ecs.insert(RunState::MainMenu {
         menu_selection: gui::MainMenuSelection::NewGame,
@@ -494,9 +520,7 @@ fn main() -> rltk::BError {
 
     gs.ecs.insert(player_entity);
 
-    for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(&mut gs.ecs, room, map.depth);
-    }
+    map_builders::spawn(&mut map, &mut gs.ecs, 1);
 
     gs.ecs.insert(map);
 

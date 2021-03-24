@@ -81,6 +81,7 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             VirtualKeyCode::Escape => return RunState::SaveGame,
             VirtualKeyCode::Numpad5 | VirtualKeyCode::Space => return skip_turn(&mut gs.ecs),
             VirtualKeyCode::R => return RunState::ShowRemoveItem,
+            VirtualKeyCode::F12 => return RunState::GameOver,
             VirtualKeyCode::Period => {
                 if try_next_level(&mut gs.ecs) {
                     return RunState::NextLevel;

@@ -1,8 +1,7 @@
 use super::Rect;
-use rltk::{Algorithm2D, BaseMap, Point, RandomNumberGenerator, Rltk, RGB};
+use rltk::{Algorithm2D, BaseMap, Point, Rltk, RGB};
 use serde::{Deserialize, Serialize};
 use specs::prelude::*;
-use std::cmp::{max, min};
 use std::collections::HashSet;
 
 #[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
@@ -34,45 +33,8 @@ pub const MAP_HEIGHT: usize = 43;
 pub const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
 
 impl Map {
-    pub fn xy_idx(&self, x: i32, y: i32) -> usize {
-        (y as usize * self.width as usize) + x as usize
-    }
-
-    pub fn index_of(&self, point: &Point) -> usize {
-        self.xy_idx(point.x, point.y)
-    }
-
-    fn apply_room_to_map(&mut self, room: &Rect) {
-        for y in room.y1 + 1..=room.y2 {
-            for x in room.x1 + 1..=room.x2 {
-                let idx = self.xy_idx(x, y);
-                self.tiles[idx] = TileType::Floor;
-            }
-        }
-    }
-
-    pub fn apply_horizontal_tunnel(&mut self, x1: i32, x2: i32, y: i32) {
-        for x in min(x1, x2)..=max(x1, x2) {
-            self.create_floor(x, y);
-        }
-    }
-
-    pub fn apply_vertical_tunnel(&mut self, y1: i32, y2: i32, x: i32) {
-        for y in min(y1, y2)..=max(y1, y2) {
-            self.create_floor(x, y);
-        }
-    }
-
-    fn create_floor(&mut self, x: i32, y: i32) {
-        let idx = self.xy_idx(x, y);
-        if idx > 0 && idx < self.width as usize * self.height as usize {
-            self.tiles[idx as usize] = TileType::Floor;
-        }
-    }
-
-    pub fn new_map_rooms_and_corridors(new_depth: i32) -> Map {
-        rltk::console::log("Creating a new map");
-        let mut map = Map {
+    pub fn new(new_depth: i32) -> Map {
+        Map {
             tiles: vec![TileType::Wall; MAP_COUNT],
             rooms: Vec::new(),
             width: MAP_WIDTH as i32,
@@ -83,52 +45,15 @@ impl Map {
             tile_content: vec![Vec::new(); MAP_COUNT],
             depth: new_depth,
             blood_stains: HashSet::new(),
-        };
-
-        const MAX_ROOMS: i32 = 30;
-        const MIN_SIZE: i32 = 6;
-        const MAX_SIZE: i32 = 10;
-
-        let mut rng = RandomNumberGenerator::new();
-
-        for _ in 0..MAX_ROOMS {
-            let w = rng.range(MIN_SIZE, MAX_SIZE);
-            let h = rng.range(MIN_SIZE, MAX_SIZE);
-            let x = rng.roll_dice(1, MAP_WIDTH as i32 - w - 1) - 1;
-            let y = rng.roll_dice(1, MAP_HEIGHT as i32 - h - 1) - 1;
-            let new_room = Rect::new(x, y, w, h);
-            let mut ok = true;
-            for other_room in map.rooms.iter() {
-                if new_room.intersect(other_room) {
-                    ok = false
-                }
-            }
-
-            if ok {
-                map.apply_room_to_map(&new_room);
-
-                if !map.rooms.is_empty() {
-                    let (new_x, new_y) = new_room.center();
-                    let (prev_x, prev_y) = map.rooms[map.rooms.len() - 1].center();
-
-                    if rng.range(0, 2) == 1 {
-                        map.apply_horizontal_tunnel(prev_x, new_x, prev_y);
-                        map.apply_vertical_tunnel(prev_y, new_y, new_x);
-                    } else {
-                        map.apply_vertical_tunnel(prev_y, new_y, prev_x);
-                        map.apply_horizontal_tunnel(prev_x, new_x, new_y);
-                    }
-                }
-
-                map.rooms.push(new_room);
-            }
         }
+    }
 
-        let (stairs_x, stairs_y) = map.rooms[map.rooms.len() - 1].center();
-        let stairs_index = map.xy_idx(stairs_x, stairs_y);
-        map.tiles[stairs_index] = TileType::StairsDown;
+    pub fn xy_idx(&self, x: i32, y: i32) -> usize {
+        (y as usize * self.width as usize) + x as usize
+    }
 
-        map
+    pub fn index_of(&self, point: &Point) -> usize {
+        self.xy_idx(point.x, point.y)
     }
 
     pub fn clear_content_index(&mut self) {
