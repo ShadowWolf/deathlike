@@ -14,7 +14,6 @@ pub enum TileType {
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Map {
     pub tiles: Vec<TileType>,
-    pub rooms: Vec<Rect>,
     pub width: i32,
     pub height: i32,
     pub revealed_tiles: Vec<bool>,
@@ -36,7 +35,6 @@ impl Map {
     pub fn new(new_depth: i32) -> Map {
         Map {
             tiles: vec![TileType::Wall; MAP_COUNT],
-            rooms: Vec::new(),
             width: MAP_WIDTH as i32,
             height: MAP_HEIGHT as i32,
             revealed_tiles: vec![false; MAP_COUNT],

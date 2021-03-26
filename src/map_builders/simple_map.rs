@@ -6,10 +6,24 @@ use crate::{spawn_room, Position, Rect, TileType};
 use rltk::RandomNumberGenerator;
 use specs::prelude::*;
 
-pub struct SimpleMapBuilder {}
+pub struct SimpleMapBuilder {
+    map: Map,
+    starting_position: Position,
+    depth: i32,
+    pub rooms: Vec<Rect>,
+}
 
 impl SimpleMapBuilder {
-    fn rooms_and_cooridors(map: &mut Map) -> Position {
+    pub fn new(new_depth: i32) -> SimpleMapBuilder {
+        SimpleMapBuilder {
+            depth: new_depth,
+            map: Map::new(new_depth),
+            starting_position: Position { x: 0, y: 0 },
+            rooms: Vec::new(),
+        }
+    }
+
+    fn rooms_and_cooridors(&mut self) {
         const MAX_ROOMS: i32 = 30;
         const MIN_SIZE: i32 = 6;
         const MAX_SIZE: i32 = 10;
@@ -19,52 +33,60 @@ impl SimpleMapBuilder {
         for i in 0..MAX_ROOMS {
             let w = rng.range(MIN_SIZE, MAX_SIZE);
             let h = rng.range(MIN_SIZE, MAX_SIZE);
-            let x = rng.roll_dice(1, map.width - w - 1) - 1;
-            let y = rng.roll_dice(1, map.height - h - 1) - 1;
+            let x = rng.roll_dice(1, self.map.width - w - 1) - 1;
+            let y = rng.roll_dice(1, self.map.height - h - 1) - 1;
 
             let new_room = Rect::new(x, y, w, h);
 
-            if !map.rooms.iter().any(|r| new_room.intersect(r)) {
-                apply_room_to_map(map, &new_room);
+            if !self.rooms.iter().any(|r| new_room.intersect(r)) {
+                apply_room_to_map(&mut self.map, &new_room);
 
-                if !map.rooms.is_empty() {
+                if !self.rooms.is_empty() {
                     let (nx, ny) = new_room.center();
-                    let (px, py) = map.rooms[map.rooms.len() - 1].center();
+                    let (px, py) = self.rooms[self.rooms.len() - 1].center();
 
                     if rng.range(0, 2) == 1 {
-                        apply_horizontal_tunnel(map, px, nx, py);
-                        apply_vertical_tunnel(map, py, ny, px);
+                        apply_horizontal_tunnel(&mut self.map, px, nx, py);
+                        apply_vertical_tunnel(&mut self.map, py, ny, nx);
                     } else {
-                        apply_vertical_tunnel(map, py, ny, px);
-                        apply_horizontal_tunnel(map, px, nx, ny);
+                        apply_vertical_tunnel(&mut self.map, py, ny, px);
+                        apply_horizontal_tunnel(&mut self.map, px, nx, ny);
                     }
                 }
 
-                map.rooms.push(new_room);
+                self.rooms.push(new_room);
             }
         }
 
-        let (stairs_x, stairs_y) = map.rooms[map.rooms.len() - 1].center();
-        let stairs_index = map.xy_idx(stairs_x, stairs_y);
-        map.tiles[stairs_index] = TileType::StairsDown;
-        let (start_x, start_y) = map.rooms[0].center();
-        Position {
+        let (stairs_x, stairs_y) = self.rooms[self.rooms.len() - 1].center();
+        let stairs_index = self.map.xy_idx(stairs_x, stairs_y);
+        self.map.tiles[stairs_index] = TileType::StairsDown;
+
+        let (start_x, start_y) = self.rooms[0].center();
+
+        self.starting_position = Position {
             x: start_x,
             y: start_y,
-        }
+        };
     }
 }
 
 impl MapBuilder for SimpleMapBuilder {
-    fn build(new_depth: i32) -> (Map, Position) {
-        let mut map = Map::new(new_depth);
-        let player_pos = SimpleMapBuilder::rooms_and_cooridors(&mut map);
-        (map, player_pos)
+    fn build_map(&mut self) {
+        self.rooms_and_cooridors();
     }
 
-    fn spawn(map: &Map, ecs: &mut World, new_depth: i32) {
-        for room in map.rooms.iter().skip(1) {
-            spawn_room(ecs, room, new_depth);
+    fn spawn_entities(&mut self, ecs: &mut World) {
+        for room in self.rooms.iter().skip(1) {
+            spawn_room(ecs, room, self.depth);
         }
+    }
+
+    fn get_map(&mut self) -> Map {
+        self.map.clone()
+    }
+
+    fn get_starting_position(&mut self) -> Position {
+        self.starting_position.clone()
     }
 }
