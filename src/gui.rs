@@ -11,7 +11,7 @@ pub enum ItemMenuResult {
     Selected,
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum MainMenuSelection {
     NewGame,
     LoadGame,
