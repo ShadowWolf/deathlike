@@ -37,8 +37,6 @@ use crate::map_builders::MapBuilder;
 use rltk::{GameState, Point, RandomNumberGenerator, Rltk};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
-use std::fmt;
-use std::fmt::Formatter;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum RunState {
@@ -65,13 +63,6 @@ pub enum RunState {
     MapGeneration,
 }
 
-enum FloorChangeType {
-    Desecend,
-    #[allow(dead_code)]
-    Ascend,
-    BackToStart,
-}
-
 pub struct MapGenState {
     next_state: Option<RunState>,
     history: Vec<Map>,
@@ -88,6 +79,7 @@ pub struct State {
 }
 
 const SHOW_MAPGEN_VISUALIZER: bool = true;
+#[allow(dead_code)]
 const SHOW_RUNSTATE_DEBUG: bool = true;
 
 impl State {
@@ -139,7 +131,7 @@ impl State {
 
     fn store_run_state(&mut self, state: &RunState) {
         if *state != self.last_set_state {
-            self.last_set_state = state.clone();
+            self.last_set_state = *state;
             rltk::console::log(format!("Storing run state {:?}", state));
         }
         let mut run_writer = self.ecs.write_resource::<RunState>();
@@ -523,7 +515,7 @@ fn main() -> rltk::BError {
             history: Vec::new(),
             timer: 0.,
             index: 0,
-            total_time: 50.0,
+            total_time: 300.0,
         },
         last_get_state: RunState::GameOver,
         last_set_state: RunState::GameOver,

@@ -12,6 +12,12 @@ pub struct Position {
     pub y: i32,
 }
 
+impl Position {
+    pub fn origin() -> Position {
+        Position { x: 0, y: 0 }
+    }
+}
+
 #[derive(Component, ConvertSaveload, Clone)]
 pub struct Renderable {
     pub glyph: rltk::FontCharType,

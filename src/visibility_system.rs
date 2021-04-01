@@ -45,14 +45,12 @@ impl<'a> System<'a> for VisibilitySystem {
 
                         for t in map.tile_content[idx].iter() {
                             let hidden_item = hidden.get(*t);
-                            if hidden_item.is_some() {
-                                if rng.roll_dice(1, 24) == 1 {
-                                    let name = names.get(*t);
-                                    if let Some(name) = name {
-                                        log.entries.push(format!("You spotted a {}", name.name))
-                                    }
-                                    hidden.remove(*t);
+                            if hidden_item.is_some() && rng.roll_dice(1, 24) == 1 {
+                                let name = names.get(*t);
+                                if let Some(name) = name {
+                                    log.entries.push(format!("You spotted a {}", name.name))
                                 }
+                                hidden.remove(*t);
                             }
                         }
                     }

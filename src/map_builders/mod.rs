@@ -1,8 +1,11 @@
+mod bsp_dungeon;
 mod room_and_corridor_creation;
 mod simple_map;
 
+use crate::map_builders::bsp_dungeon::BspDungeonBuilder;
 use crate::map_builders::simple_map::SimpleMapBuilder;
 use crate::{Map, Position};
+use rltk::RandomNumberGenerator;
 use specs::World;
 
 pub trait MapBuilder {
@@ -15,5 +18,11 @@ pub trait MapBuilder {
 }
 
 pub fn random_builder(new_depth: i32) -> Box<dyn MapBuilder> {
-    Box::new(SimpleMapBuilder::new(new_depth))
+    let mut rng = RandomNumberGenerator::new();
+    let builder = rng.roll_dice(1, 2);
+
+    match builder {
+        1 => Box::new(BspDungeonBuilder::new(new_depth)),
+        _ => Box::new(SimpleMapBuilder::new(new_depth)),
+    }
 }

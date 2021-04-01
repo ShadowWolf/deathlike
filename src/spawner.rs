@@ -119,6 +119,7 @@ fn determine_spawn_points(
             let x = (room.x1 + rng.roll_dice(1, i32::abs(room.x2 - room.x1))) as usize;
             let y = (room.y1 + rng.roll_dice(1, i32::abs(room.y2 - room.y1))) as usize;
             let idx = (y * MAP_WIDTH) + x;
+
             if !spawn_points.contains_key(&idx) {
                 spawn_points.insert(idx, spawn_table.roll(&mut rng));
                 added = true;

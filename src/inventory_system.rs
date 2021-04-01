@@ -214,6 +214,7 @@ impl UseItemSystem {
         targets
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn process_damage_actions(
         &self,
         player_entity: &Entity,
@@ -275,6 +276,7 @@ impl UseItemSystem {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn process_healing_actions(
         &self,
         player_entity: &Entity,
@@ -329,6 +331,7 @@ impl UseItemSystem {
 }
 
 impl UseItemSystem {
+    #[allow(clippy::too_many_arguments)]
     fn process_confusion_actions(
         &self,
         player_entity: &Entity,
@@ -443,7 +446,7 @@ impl UseItemSystem {
         mut equipped: &mut WriteStorage<Equipped>,
         backpack: &mut WriteStorage<InBackpack>,
         item_to_use: &WantsToUseItem,
-        targets: &Vec<Entity>,
+        targets: &[Entity],
     ) {
         let item_equippable = equippable.get(item_to_use.item);
         match item_equippable {
