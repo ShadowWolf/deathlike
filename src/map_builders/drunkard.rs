@@ -4,7 +4,7 @@ use crate::map_builders::MapBuilder;
 use specs::World;
 use rltk::RandomNumberGenerator;
 use crate::map_builders::map_processing::{remove_unreachable_areas, generate_voronoi_spawn_regions};
-use crate::TileType::StairsDown;
+
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum DrunkSpawnMode { StartingPoint, Random }

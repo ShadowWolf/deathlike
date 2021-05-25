@@ -59,7 +59,7 @@ fn determine_possible_targets(ecs: &mut World, room: &Rect, possible_targets: &m
 pub fn spawn_region(ecs: &mut World, area: &[usize], map_depth: i32) {
     let spawn_table = room_table(map_depth);
     let mut spawn_points: HashMap<usize, String> = HashMap::new();
-    let mut areas: Vec<usize> = Vec::from(area);
+    let areas: Vec<usize> = Vec::from(area);
 
     add_area_spawns(ecs, spawn_table, &mut spawn_points, areas);
 

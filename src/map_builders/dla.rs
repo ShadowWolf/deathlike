@@ -1,6 +1,6 @@
 use crate::{Position, Map, TileType, spawner, SHOW_MAPGEN_VISUALIZER};
 use std::collections::HashMap;
-use rltk::{RandomNumberGenerator, FastNoise, Point};
+use rltk::{RandomNumberGenerator, Point};
 use specs::World;
 use crate::map_builders::MapBuilder;
 use crate::map_builders::map_processing::{remove_unreachable_areas, generate_voronoi_spawn_regions};
