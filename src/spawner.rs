@@ -1,9 +1,4 @@
-use crate::{
-    AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenseBonus, EntryTrigger,
-    EquipmentSlot, Equippable, Hidden, InflictsDamage, Item, MagicMapper, MeleePowerBonus, Monster,
-    Name, Player, Position, ProvidesHealing, RandomTable, Ranged, Rect, Renderable, Savable,
-    SingleActivation, Viewshed, MAP_WIDTH,
-};
+use crate::{AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenseBonus, EntryTrigger, EquipmentSlot, Equippable, Hidden, InflictsDamage, Item, MagicMapper, MeleePowerBonus, Monster, Name, Player, Position, ProvidesHealing, RandomTable, Ranged, Rect, Renderable, Savable, SingleActivation, Viewshed, MAP_WIDTH, Map, TileType};
 use rltk::{RandomNumberGenerator, RGB};
 use specs::prelude::*;
 use specs::saveload::{MarkedBuilder, SimpleMarker};
@@ -44,41 +39,68 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> Entity {
 }
 
 pub fn spawn_room(ecs: &mut World, room: &Rect, map_depth: i32) {
-    rltk::console::log(format!(
-        "Spawning room at ({},{}) to ({}, {})",
-        room.x1, room.y1, room.x2, room.y2
-    ));
+    let mut possible_targets: Vec<usize> = Vec::new();
+    determine_possible_targets(ecs, room, &mut possible_targets);
+    spawn_region(ecs, &possible_targets, map_depth);
+}
 
+fn determine_possible_targets(ecs: &mut World, room: &Rect, possible_targets: &mut Vec<usize>) {
+    let map = ecs.fetch::<Map>();
+    for y in room.y1 + 1..room.y2 {
+        for x in room.x1 + 1..room.x2 {
+            let i = map.xy_idx(x, y);
+            if map.tiles[i] == TileType::Floor {
+                possible_targets.push(i);
+            }
+        }
+    }
+}
+
+pub fn spawn_region(ecs: &mut World, area: &[usize], map_depth: i32) {
     let spawn_table = room_table(map_depth);
     let mut spawn_points: HashMap<usize, String> = HashMap::new();
-    determine_spawn_points(
-        ecs,
-        &mut spawn_points,
-        MAX_MONSTERS,
-        map_depth,
-        room,
-        &spawn_table,
-    );
+    let mut areas: Vec<usize> = Vec::from(area);
 
-    for (pos, name) in spawn_points.iter() {
-        let x = (pos % MAP_WIDTH) as i32;
-        let y = (pos / MAP_WIDTH) as i32;
+    add_area_spawns(ecs, spawn_table, &mut spawn_points, areas);
 
-        match name.as_ref() {
-            "Goblin" => goblin(ecs, x, y),
-            "Orc" => orc(ecs, x, y),
-            "Health Potion" => health_potion(ecs, x, y),
-            "Fireball Scroll" => fireball_scroll(ecs, x, y),
-            "Confusion Scroll" => confusion_scroll(ecs, x, y),
-            "Magic Missile Scroll" => magic_missile_scroll(ecs, x, y),
-            "Shield" => shield(ecs, x, y),
-            "Dagger" => dagger(ecs, x, y),
-            "Longsword" => longsword(ecs, x, y),
-            "Tower Shield" => tower_shield(ecs, x, y),
-            "Magic Mapping Scroll" => magic_mapper(ecs, x, y),
-            "Bear Trap" => bear_trap(ecs, x, y),
-            _ => {}
-        }
+    for spawn in spawn_points.iter() {
+        spawn_entity(ecs, &spawn);
+    }
+}
+
+fn add_area_spawns(ecs: &mut World, spawn_table: RandomTable, spawn_points: &mut HashMap<usize, String>, mut areas: Vec<usize>) {
+    let mut rng = ecs.write_resource::<RandomNumberGenerator>();
+    let num_spawns = i32::min(areas.len() as i32, rng.roll_dice(1, MAX_MONSTERS + 3));
+    if num_spawns == 0 { return; }
+
+    for _i in 0..num_spawns {
+        let array_index = if areas.len() == 1 { 0usize } else { (rng.roll_dice(1, areas.len() as i32) - 1) as usize} ;
+        let map_index = areas[array_index];
+        spawn_points.insert(map_index, spawn_table.roll(&mut rng));
+        areas.remove(array_index);
+    }
+}
+
+fn spawn_entity(ecs: &mut World, spawn: &(&usize, &String)) {
+    let (location, entity_name) = *spawn;
+
+    let x = (location % MAP_WIDTH) as i32;
+    let y = (location / MAP_WIDTH) as i32;
+
+    match entity_name.as_ref() {
+        "Goblin" => goblin(ecs, x, y),
+        "Orc" => orc(ecs, x, y),
+        "Health Potion" => health_potion(ecs, x, y),
+        "Fireball Scroll" => fireball_scroll(ecs, x, y),
+        "Confusion Scroll" => confusion_scroll(ecs, x, y),
+        "Magic Missile Scroll" => magic_missile_scroll(ecs, x, y),
+        "Shield" => shield(ecs, x, y),
+        "Dagger" => dagger(ecs, x, y),
+        "Longsword" => longsword(ecs, x, y),
+        "Tower Shield" => tower_shield(ecs, x, y),
+        "Magic Mapping Scroll" => magic_mapper(ecs, x, y),
+        "Bear Trap" => bear_trap(ecs, x, y),
+        _ => {}
     }
 }
 

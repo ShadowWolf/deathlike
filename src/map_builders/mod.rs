@@ -3,6 +3,10 @@ mod bsp_interior;
 mod cellular_automata;
 mod room_and_corridor_creation;
 mod simple_map;
+mod drunkard;
+mod map_processing;
+mod maze;
+mod dla;
 
 use crate::map_builders::bsp_dungeon::BspDungeonBuilder;
 use crate::map_builders::bsp_interior::BspInteriorBuilder;
@@ -10,6 +14,10 @@ use crate::map_builders::simple_map::SimpleMapBuilder;
 use crate::{Map, Position};
 use rltk::RandomNumberGenerator;
 use specs::World;
+use crate::map_builders::cellular_automata::CellularAutomataBuilder;
+use crate::map_builders::drunkard::{DrunkardsWalkBuilder, DrunkardSettings, DrunkSpawnMode};
+use crate::map_builders::maze::MazeBuilder;
+use crate::map_builders::dla::DLABuilder;
 
 pub trait MapBuilder {
     fn build_map(&mut self);
@@ -28,5 +36,5 @@ pub fn random_builder(new_depth: i32) -> Box<dyn MapBuilder> {
     //     1 => Box::new(BspDungeonBuilder::new(new_depth)),
     //     _ => Box::new(SimpleMapBuilder::new(new_depth)),
     // }
-    Box::new(BspInteriorBuilder::new(new_depth))
+    Box::new(DLABuilder::insectoid(new_depth))
 }

@@ -101,7 +101,7 @@ impl BaseMap for Map {
         if self.is_exit_valid(x, y - 1) {
             exits.push((idx - w, 1.0))
         };
-        if self.is_exit_valid(x, y - 1) {
+        if self.is_exit_valid(x, y + 1) {
             exits.push((idx + w, 1.0))
         };
 
