@@ -8,6 +8,7 @@ use specs::prelude::*;
 pub struct TriggerSystem {}
 
 impl<'a> System<'a> for TriggerSystem {
+    #[allow(clippy::type_complexity)]
     type SystemData = (
         ReadExpect<'a, Map>,
         WriteStorage<'a, EntityMoved>,

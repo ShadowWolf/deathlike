@@ -1,10 +1,9 @@
 use crate::{Map, Position, SHOW_MAPGEN_VISUALIZER, TileType, spawner};
 use crate::map_builders::MapBuilder;
 use specs::World;
-use rltk::{RandomNumberGenerator, FastNoise};
+use rltk::{RandomNumberGenerator};
 use std::collections::HashMap;
-
-const MIN_ROOM_SIZE: i32 = 8;
+use crate::map_builders::map_processing::{generate_voronoi_spawn_regions, remove_unreachable_areas};
 
 pub struct CellularAutomataBuilder {
     map: Map,
@@ -77,37 +76,6 @@ impl CellularAutomataBuilder {
 
         self.take_snapshot();
 
-        self.build_automata();
-
-        let mut noise = rltk::FastNoise::seeded(rng.roll_dice(1, 65536) as u64);
-        noise.set_noise_type(rltk::NoiseType::Cellular);
-        noise.set_frequency(0.08);
-        noise.set_cellular_distance_function(rltk::CellularDistanceFunction::Manhattan);
-
-        self.build_noise_map(&mut noise);
-
-        self.take_snapshot();
-    }
-
-    fn build_noise_map(&mut self, noise: &mut FastNoise) {
-        for y in 1..self.map.height - 1 {
-            for x in 1..self.map.width - 1 {
-                let i = self.map.xy_idx(x, y);
-                if self.map.tiles[i] == TileType::Floor {
-                    let cell_value_float = noise.get_noise(x as f32, y as f32) * 10240.0;
-                    let cell_value = cell_value_float as i32;
-
-                    if self.noise_areas.contains_key(&cell_value) {
-                        self.noise_areas.get_mut(&cell_value).unwrap().push(i);
-                    } else {
-                        self.noise_areas.insert(cell_value, vec![i]);
-                    }
-                }
-            }
-        }
-    }
-
-    fn build_automata(&mut self) {
         for _i in 0..15 {
             let mut new_tiles = self.map.tiles.clone();
 
@@ -144,31 +112,13 @@ impl CellularAutomataBuilder {
             start_index = self.map.xy_idx(self.starting_position.x, self.starting_position.y);
         }
 
+        let exit_tile = remove_unreachable_areas(&mut self.map, start_index);
         self.take_snapshot();
 
-        let map_starts: Vec<usize> = vec![start_index];
-
-        rltk::console::log(format!("Length of map_starts is {}", map_starts.len()));
-        rltk::console::log(format!("Length of the map tiles is {}", self.map.tiles.len()));
-
-        let dijkstra_map = rltk::DijkstraMap::new(self.map.width as usize, self.map.height as usize, &map_starts, &self.map, 200.0);
-        let mut exit_tile = (0, 0.0f32);
-        for (i, tile) in self.map.tiles.iter_mut().enumerate() {
-            if *tile == TileType::Floor {
-                let distance = dijkstra_map.map[i];
-                if distance == f32::MAX {
-                    *tile = TileType::Wall;
-                } else {
-                    if distance > exit_tile.1 {
-                        exit_tile.0 = i;
-                        exit_tile.1 = distance;
-                    }
-                }
-            }
-        }
-
+        self.map.tiles[exit_tile] = TileType::StairsDown;
         self.take_snapshot();
-        self.map.tiles[exit_tile.0] = TileType::StairsDown;
+
+        self.noise_areas = generate_voronoi_spawn_regions(&self.map, &mut rng);
         self.take_snapshot();
     }
 }

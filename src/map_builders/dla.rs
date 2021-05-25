@@ -5,9 +5,11 @@ use specs::World;
 use crate::map_builders::MapBuilder;
 use crate::map_builders::map_processing::{remove_unreachable_areas, generate_voronoi_spawn_regions};
 
+#[allow(dead_code)]
 #[derive(PartialEq, Copy, Clone)]
 pub enum DLAAlgorithm { WalkInwards, WalkOutwards, CentralAttractor }
 
+#[allow(dead_code)]
 #[derive(PartialEq, Copy, Clone)]
 pub enum DLASymmetry { None, Horizontal, Vertical, Both }
 

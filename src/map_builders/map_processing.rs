@@ -1,7 +1,7 @@
 use crate::{Map, TileType};
 use std::collections::HashMap;
 
-pub fn remove_unreachable_areas(map: &mut Map, start_index: usize) -> usize {
+pub fn  remove_unreachable_areas(map: &mut Map, start_index: usize) -> usize {
     map.populate_blocked();
     let map_starts: Vec<usize> = vec![start_index];
     let dijkstra_map = rltk::DijkstraMap::new(map.width as usize, map.height as usize, &map_starts, map, 200.0);

@@ -6,6 +6,7 @@ use specs::prelude::*;
 pub struct VisibilitySystem {}
 
 impl<'a> System<'a> for VisibilitySystem {
+    #[allow(clippy::type_complexity)]
     type SystemData = (
         WriteExpect<'a, Map>,
         Entities<'a>,

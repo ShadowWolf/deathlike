@@ -412,6 +412,7 @@ impl<'a> System<'a> for ItemRemoveSystem {
 }
 
 impl UseItemSystem {
+    #[allow(clippy::too_many_arguments)]
     fn find_items_to_unequip(
         &self,
         player_entity: &Entity,
@@ -436,6 +437,7 @@ impl UseItemSystem {
 }
 
 impl UseItemSystem {
+    #[allow(clippy::too_many_arguments)]
     fn process_equip_actions(
         &mut self,
         player_entity: &Entity,

@@ -120,14 +120,12 @@ impl<'a> Grid<'a> {
 
     fn find_next_cell(&mut self) -> Option<usize> {
         let neighbors = self.get_available_neighbors();
-        return if neighbors.is_empty() {
+        if neighbors.is_empty() {
             None
+        } else if neighbors.len() == 1 {
+            Some(neighbors[0])
         } else {
-            if neighbors.len() == 1 {
-                Some(neighbors[0])
-            } else {
-                Some(neighbors[(self.rng.roll_dice(1, neighbors.len() as i32) - 1) as usize])
-            }
+            Some(neighbors[(self.rng.roll_dice(1, neighbors.len() as i32) - 1) as usize])
         }
     }
 

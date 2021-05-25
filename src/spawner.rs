@@ -5,7 +5,6 @@ use specs::saveload::{MarkedBuilder, SimpleMarker};
 use std::collections::HashMap;
 
 const MAX_MONSTERS: i32 = 4;
-const MAX_TRIES: i32 = 20;
 
 pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> Entity {
     ecs.create_entity()
@@ -118,38 +117,6 @@ fn room_table(map_depth: i32) -> RandomTable {
         .add("Tower Shield", map_depth - 1)
         .add("Magic Mapping Scroll", 2)
         .add("Bear Trap", 2)
-}
-
-fn determine_spawn_points(
-    ecs: &mut World,
-    spawn_points: &mut HashMap<usize, String>,
-    max_items: i32,
-    depth: i32,
-    room: &Rect,
-    spawn_table: &RandomTable,
-) {
-    let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-
-    let num_items = rng.roll_dice(1, max_items + 3) + (depth - 1) - 3;
-
-    rltk::console::log(format!("Spawning {} things", num_items));
-
-    for _ in 0..num_items {
-        let mut added = false;
-        let mut tries = 0;
-        while !added && tries < MAX_TRIES {
-            let x = (room.x1 + rng.roll_dice(1, i32::abs(room.x2 - room.x1))) as usize;
-            let y = (room.y1 + rng.roll_dice(1, i32::abs(room.y2 - room.y1))) as usize;
-            let idx = (y * MAP_WIDTH) + x;
-
-            if !spawn_points.contains_key(&idx) {
-                spawn_points.insert(idx, spawn_table.roll(&mut rng));
-                added = true;
-            } else {
-                tries += 1;
-            }
-        }
-    }
 }
 
 fn orc(ecs: &mut World, x: i32, y: i32) {

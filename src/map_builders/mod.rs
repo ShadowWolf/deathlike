@@ -8,14 +8,9 @@ mod map_processing;
 mod maze;
 mod dla;
 
-
-
-
 use crate::{Map, Position};
 
 use specs::World;
-
-
 
 use crate::map_builders::dla::DLABuilder;
 use crate::map_builders::bsp_dungeon::BspDungeonBuilder;
@@ -49,6 +44,6 @@ pub fn random_builder(new_depth: i32) -> Box<dyn MapBuilder> {
         9 => Box::new(DLABuilder::walk_outwards(new_depth)),
         10 => Box::new(DLABuilder::central_attractor(new_depth)),
         11 => Box::new(DLABuilder::insectoid(new_depth)),
-        _ => Box::new(SimpleMapBßuilder::new(new_depth))
+        _ => Box::new(SimpleMapBuilder::new(new_depth))
     }
 }
