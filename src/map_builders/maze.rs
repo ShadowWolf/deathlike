@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use crate::{Map, Position, spawner, SHOW_MAPGEN_VISUALIZER, TileType};
-use crate::map_builders::MapBuilder;
+use crate::{Map, Position, spawner, SHOW_MAPGEN_VISUALIZER, TileType, impl_map_builder_with_noise_areas};
+use crate::map_builders::{build_snapshot, MapBuilder};
 use specs::World;
 use rltk::RandomNumberGenerator;
 use crate::map_builders::map_processing::{remove_unreachable_areas, generate_voronoi_spawn_regions};
@@ -12,6 +12,8 @@ pub struct MazeBuilder {
     history: Vec<Map>,
     noise_areas: HashMap<i32, Vec<usize>>,
 }
+
+impl_map_builder_with_noise_areas!(MazeBuilder);
 
 const TOP: usize = 0;
 const RIGHT: usize = 1;
@@ -179,41 +181,6 @@ impl<'a> Grid<'a> {
             if !cell.walls[RIGHT] { map.tiles[i + 1] = TileType::Floor; }
             if !cell.walls[BOTTOM] { map.tiles[i + map.width as usize] = TileType::Floor; }
             if !cell.walls[LEFT] { map.tiles[i - 1] = TileType::Floor; }
-        }
-    }
-}
-
-impl MapBuilder for MazeBuilder {
-    fn build_map(&mut self) {
-        self.build();
-    }
-
-    fn spawn_entities(&mut self, ecs: &mut World) {
-        for (_i, area) in self.noise_areas.iter() {
-            spawner::spawn_region(ecs, area, self.depth);
-        }
-    }
-
-    fn get_map(&mut self) -> Map {
-        self.map.clone()
-    }
-
-    fn get_starting_position(&mut self) -> Position {
-        self.starting_position.clone()
-    }
-
-    fn get_snapshot_history(&self) -> Vec<Map> {
-        self.history.clone()
-    }
-
-    fn take_snapshot(&mut self) {
-        if SHOW_MAPGEN_VISUALIZER {
-            let mut snapshot = self.map.clone();
-            for v in snapshot.revealed_tiles.iter_mut() {
-                *v = true;
-            }
-
-            self.history.push(snapshot);
         }
     }
 }

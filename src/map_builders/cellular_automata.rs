@@ -1,5 +1,5 @@
-use crate::{Map, Position, SHOW_MAPGEN_VISUALIZER, TileType, spawner};
-use crate::map_builders::MapBuilder;
+use crate::{Map, Position, SHOW_MAPGEN_VISUALIZER, TileType, spawner, impl_map_builder_with_noise_areas};
+use crate::map_builders::{build_snapshot, MapBuilder};
 use specs::World;
 use rltk::{RandomNumberGenerator};
 use std::collections::HashMap;
@@ -13,39 +13,7 @@ pub struct CellularAutomataBuilder {
     noise_areas: HashMap<i32, Vec<usize>>,
 }
 
-impl MapBuilder for CellularAutomataBuilder {
-    fn build_map(&mut self) {
-        self.build();
-    }
-
-    fn spawn_entities(&mut self, ecs: &mut World) {
-        for (_i, area) in self.noise_areas.iter() {
-            spawner::spawn_region(ecs, area, self.depth);
-        }
-    }
-
-    fn get_map(&mut self) -> Map {
-        self.map.clone()
-    }
-
-    fn get_starting_position(&mut self) -> Position {
-        self.starting_position.clone()
-    }
-
-    fn get_snapshot_history(&self) -> Vec<Map> {
-        self.history.clone()
-    }
-
-    fn take_snapshot(&mut self) {
-        if SHOW_MAPGEN_VISUALIZER {
-            let mut snapshot = self.map.clone();
-            for v in snapshot.revealed_tiles.iter_mut() {
-                *v = true;
-            }
-            self.history.push(snapshot);
-        }
-    }
-}
+impl_map_builder_with_noise_areas!(CellularAutomataBuilder);
 
 impl CellularAutomataBuilder {
     pub fn new(new_depth: i32) -> CellularAutomataBuilder {

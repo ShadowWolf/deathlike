@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use specs::prelude::*;
 use std::collections::HashSet;
 
-#[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize, Debug)]
 pub enum TileType {
     Wall,
     Floor,
@@ -47,6 +47,24 @@ impl Map {
 
     pub fn xy_idx(&self, x: i32, y: i32) -> usize {
         (y as usize * self.width as usize) + x as usize
+    }
+
+    pub fn set_floor(&mut self, x: i32, y: i32) {
+        self.set_tile(x, y, TileType::Floor);
+    }
+
+    pub fn set_wall(&mut self, x: i32, y: i32) {
+        self.set_tile(x, y, TileType::Wall);
+    }
+
+    pub fn get_tile(&self, x: i32, y: i32) -> TileType {
+        let i = self.xy_idx(x, y);
+        self.tiles[i]
+    }
+
+    pub fn set_tile(&mut self, x: i32, y: i32, tile: TileType) {
+        let i = self.xy_idx(x, y);
+        self.tiles[i] = tile;
     }
 
     pub fn index_of(&self, point: &Point) -> usize {

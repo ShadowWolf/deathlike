@@ -3,6 +3,7 @@ use crate::{save_exists, Equipped, Hidden, InBackpack, ItemHasOwner, RunState, S
 use rltk::{console, Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
 use specs::world::EntitiesRes;
+use crate::rex_assets::RexAssets;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ItemMenuResult {
@@ -158,9 +159,22 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
         menu_selection: selection,
     } = *run_state
     {
+        let assets = gs.ecs.fetch::<RexAssets>();
+        ctx.render_xp_sprite(&assets.menu, 0, 0);
+
         let selected_color = RGB::named(rltk::MAGENTA);
         let idle_color = RGB::named(rltk::WHITE);
         let background = RGB::named(rltk::BLACK);
+
+        let box_foreground = RGB::named(rltk::WHEAT);
+        let box_background = RGB::named(rltk::BLACK);
+        let box_text_title = RGB::named(rltk::YELLOW);
+        let box_text = RGB::named(rltk::CYAN);
+
+        ctx.draw_box_double(24, 18, 31, 10, box_foreground, box_background);
+        ctx.print_color_centered(20, box_text_title, box_background, "Deathlike");
+        ctx.print_color_centered(22, box_text, box_background, "It's like death");
+
 
         ctx.print_color_centered(
             24,
@@ -173,9 +187,11 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
             "Begin New Game",
         );
 
+        let mut y = 25;
+
         if show_load_game {
             ctx.print_color_centered(
-                25,
+                y,
                 if selection == MainMenuSelection::LoadGame {
                     selected_color
                 } else {
@@ -184,10 +200,11 @@ pub fn show_main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                 background,
                 "Load Game",
             );
+            y += 1;
         }
 
         ctx.print_color_centered(
-            26,
+            y,
             if selection == MainMenuSelection::Quit {
                 selected_color
             } else {

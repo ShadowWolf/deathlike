@@ -1,8 +1,8 @@
-use super::{Map, MapBuilder};
 use crate::map_builders::room_and_corridor_creation::{
     apply_horizontal_tunnel, apply_room_to_map, apply_vertical_tunnel,
 };
-use crate::{spawn_room, Position, Rect, TileType, SHOW_MAPGEN_VISUALIZER};
+use crate::{Map, spawner, Position, Rect, TileType, SHOW_MAPGEN_VISUALIZER, impl_map_builder_with_rooms};
+use crate::map_builders::{build_snapshot, MapBuilder};
 use rltk::RandomNumberGenerator;
 use specs::prelude::*;
 
@@ -25,7 +25,7 @@ impl SimpleMapBuilder {
         }
     }
 
-    fn rooms_and_cooridors(&mut self) {
+    fn build(&mut self) {
         const MAX_ROOMS: i32 = 30;
         const MIN_SIZE: i32 = 6;
         const MAX_SIZE: i32 = 10;
@@ -75,36 +75,4 @@ impl SimpleMapBuilder {
     }
 }
 
-impl MapBuilder for SimpleMapBuilder {
-    fn build_map(&mut self) {
-        self.rooms_and_cooridors();
-    }
-
-    fn spawn_entities(&mut self, ecs: &mut World) {
-        for room in self.rooms.iter().skip(1) {
-            spawn_room(ecs, room, self.depth);
-        }
-    }
-
-    fn get_map(&mut self) -> Map {
-        self.map.clone()
-    }
-
-    fn get_starting_position(&mut self) -> Position {
-        self.starting_position.clone()
-    }
-
-    fn get_snapshot_history(&self) -> Vec<Map> {
-        self.history.clone()
-    }
-
-    fn take_snapshot(&mut self) {
-        if SHOW_MAPGEN_VISUALIZER {
-            let mut snapshot = self.map.clone();
-            for v in snapshot.revealed_tiles.iter_mut() {
-                *v = true;
-            }
-            self.history.push(snapshot);
-        }
-    }
-}
+impl_map_builder_with_rooms!(SimpleMapBuilder);

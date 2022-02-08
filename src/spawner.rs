@@ -80,7 +80,7 @@ fn add_area_spawns(ecs: &mut World, spawn_table: RandomTable, spawn_points: &mut
     }
 }
 
-fn spawn_entity(ecs: &mut World, spawn: &(&usize, &String)) {
+pub fn spawn_entity(ecs: &mut World, spawn: &(&usize, &String)) {
     let (location, entity_name) = *spawn;
 
     let x = (location % MAP_WIDTH) as i32;

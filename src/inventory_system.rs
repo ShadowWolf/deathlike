@@ -236,11 +236,11 @@ impl UseItemSystem {
                 for mob in targets.iter() {
                     SufferDamage::new_damage(&mut suffer_damage, *mob, damage.damage);
                     if entity == player_entity {
-                        let player_name = names.get(*mob).unwrap();
+                        let mob_name = names.get(*mob).unwrap();
                         let item_name = names.get(item_to_use.item).unwrap();
                         log.entries.push(format!(
                             "You use {} on {} and inflict {} damage",
-                            player_name.name, item_name.name, damage.damage
+                            item_name.name, mob_name.name, damage.damage
                         ));
                     }
 
@@ -255,6 +255,7 @@ impl UseItemSystem {
                             200.0,
                         );
                     }
+
                     used_item = true;
                 }
             }

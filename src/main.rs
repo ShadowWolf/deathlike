@@ -19,6 +19,7 @@ mod save_load_system;
 mod spawner;
 mod trigger_system;
 mod visibility_system;
+mod rex_assets;
 
 pub use components::*;
 pub use gamelog::*;
@@ -81,6 +82,9 @@ pub struct State {
 const SHOW_MAPGEN_VISUALIZER: bool = true;
 #[allow(dead_code)]
 const SHOW_RUNSTATE_DEBUG: bool = true;
+
+#[allow(dead_code)]
+const GENERATE_RANDOM_MAPS: bool = true;
 
 impl State {
     fn run_systems(&mut self) {
@@ -217,7 +221,7 @@ impl State {
         self.mapgen.timer = 0.;
         self.mapgen.history.clear();
 
-        let mut builder = map_builders::random_builder(new_depth);
+        let mut builder = if GENERATE_RANDOM_MAPS { map_builders::random_builder(new_depth) } else { map_builders::static_builder(new_depth) };
         builder.build_map();
 
         self.mapgen.history = builder.get_snapshot_history();
@@ -535,6 +539,7 @@ fn main() -> rltk::BError {
         entries: vec!["Welcome to deathlike!".to_string()],
     });
     gs.ecs.insert(ParticleBuilder::new());
+    gs.ecs.insert(rex_assets::RexAssets::new());
     gs.generate_world_map(1);
 
     rltk::main_loop(context, gs)

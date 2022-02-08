@@ -1,5 +1,5 @@
-use crate::map_builders::MapBuilder;
-use crate::{spawner, Map, Position, Rect, TileType, SHOW_MAPGEN_VISUALIZER};
+use crate::map_builders::{build_snapshot, MapBuilder};
+use crate::{spawner, Map, Position, Rect, TileType, SHOW_MAPGEN_VISUALIZER, impl_map_builder_with_rooms};
 use rltk::RandomNumberGenerator;
 use specs::World;
 
@@ -14,39 +14,7 @@ pub struct BspInteriorBuilder {
     rects: Vec<Rect>,
 }
 
-impl MapBuilder for BspInteriorBuilder {
-    fn build_map(&mut self) {
-        self.build();
-    }
-
-    fn spawn_entities(&mut self, ecs: &mut World) {
-        for room in self.rooms.iter().skip(1) {
-            spawner::spawn_room(ecs, room, self.depth);
-        }
-    }
-
-    fn get_map(&mut self) -> Map {
-        self.map.clone()
-    }
-
-    fn get_starting_position(&mut self) -> Position {
-        self.starting_position.clone()
-    }
-
-    fn get_snapshot_history(&self) -> Vec<Map> {
-        self.history.clone()
-    }
-
-    fn take_snapshot(&mut self) {
-        if SHOW_MAPGEN_VISUALIZER {
-            let mut snapshot = self.map.clone();
-            for v in snapshot.revealed_tiles.iter_mut() {
-                *v = true;
-            }
-            self.history.push(snapshot);
-        }
-    }
-}
+impl_map_builder_with_rooms!(BspInteriorBuilder);
 
 impl BspInteriorBuilder {
     pub fn new(new_depth: i32) -> BspInteriorBuilder {

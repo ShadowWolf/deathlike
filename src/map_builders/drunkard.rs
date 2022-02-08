@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use crate::{Map, Position, spawner, SHOW_MAPGEN_VISUALIZER, TileType};
-use crate::map_builders::MapBuilder;
+use crate::{Map, Position, spawner, SHOW_MAPGEN_VISUALIZER, TileType, impl_map_builder_with_noise_areas};
+use crate::map_builders::{build_snapshot, MapBuilder};
 use specs::World;
 use rltk::RandomNumberGenerator;
 use crate::map_builders::map_processing::{remove_unreachable_areas, generate_voronoi_spawn_regions};
+use crate::map_builders::drawing::{Symmetry, paint};
 
 
 #[derive(PartialEq, Copy, Clone)]
@@ -13,6 +14,8 @@ pub struct DrunkardSettings {
     pub spawn_mode: DrunkSpawnMode,
     pub drunken_lifetime: i32,
     pub floor_percent: f32,
+    pub brush_size: i32,
+    pub symmetry: Symmetry,
 }
 
 pub struct DrunkardsWalkBuilder {
@@ -24,40 +27,7 @@ pub struct DrunkardsWalkBuilder {
     settings: DrunkardSettings
 }
 
-impl MapBuilder for DrunkardsWalkBuilder {
-    fn build_map(&mut self) {
-        self.build();
-    }
-
-    fn spawn_entities(&mut self, ecs: &mut World) {
-        for (_d, area) in self.noise_areas.iter() {
-            spawner::spawn_region(ecs, area, self.depth);
-        }
-    }
-
-    fn get_map(&mut self) -> Map {
-        self.map.clone()
-    }
-
-    fn get_starting_position(&mut self) -> Position {
-        self.starting_position.clone()
-    }
-
-    fn get_snapshot_history(&self) -> Vec<Map> {
-        self.history.clone()
-    }
-
-    fn take_snapshot(&mut self) {
-        if SHOW_MAPGEN_VISUALIZER {
-            let mut snapshot = self.map.clone();
-            for v in snapshot.revealed_tiles.iter_mut() {
-                *v = true;
-            }
-
-            self.history.push(snapshot);
-        }
-    }
-}
+impl_map_builder_with_noise_areas!(DrunkardsWalkBuilder);
 
 impl DrunkardsWalkBuilder {
     pub fn new(new_depth: i32, settings: DrunkardSettings) -> DrunkardsWalkBuilder {
@@ -75,7 +45,9 @@ impl DrunkardsWalkBuilder {
         DrunkardsWalkBuilder::new(new_depth, DrunkardSettings {
             floor_percent: 0.5,
             drunken_lifetime: 400,
-            spawn_mode: DrunkSpawnMode::StartingPoint
+            spawn_mode: DrunkSpawnMode::StartingPoint,
+            brush_size: 1,
+            symmetry: Symmetry::None
         })
     }
 
@@ -84,6 +56,8 @@ impl DrunkardsWalkBuilder {
             spawn_mode: DrunkSpawnMode::Random,
             drunken_lifetime: 400,
             floor_percent: 0.5,
+            brush_size: 1,
+            symmetry: Symmetry::None
         })
     }
 
@@ -91,7 +65,29 @@ impl DrunkardsWalkBuilder {
         DrunkardsWalkBuilder::new(new_depth, DrunkardSettings {
             spawn_mode: DrunkSpawnMode::Random,
             floor_percent: 0.4,
-            drunken_lifetime: 100
+            drunken_lifetime: 100,
+            brush_size: 1,
+            symmetry: Symmetry::None
+        })
+    }
+
+    pub fn big_passages(new_depth: i32) -> DrunkardsWalkBuilder {
+        DrunkardsWalkBuilder::new(new_depth, DrunkardSettings {
+            spawn_mode: DrunkSpawnMode::Random,
+            drunken_lifetime: 100,
+            floor_percent: 0.4,
+            brush_size: 2,
+            symmetry: Symmetry::None
+        })
+    }
+
+    pub fn fearful_symmetry(new_depth: i32) -> DrunkardsWalkBuilder {
+        DrunkardsWalkBuilder::new(new_depth, DrunkardSettings {
+            spawn_mode: DrunkSpawnMode::Random,
+            drunken_lifetime: 100,
+            floor_percent: 0.4,
+            brush_size: 2,
+            symmetry: Symmetry::Both,
         })
     }
 
@@ -133,12 +129,12 @@ impl DrunkardsWalkBuilder {
             let mut drunk_health = self.settings.drunken_lifetime;
 
             while drunk_health > 0 {
-                let i = self.map.xy_idx(drunk_x, drunk_y);
-                if self.map.tiles[i] == TileType::Wall {
+                if self.map.get_tile(drunk_x, drunk_y) == TileType::Wall {
                     mutated_tiles = true;
                 }
 
-                self.map.tiles[i] = TileType::StairsDown;
+                paint(&mut self.map, self.settings.symmetry, self.settings.brush_size, drunk_x, drunk_y);
+                self.map.set_tile(drunk_x, drunk_y, TileType::StairsDown);
 
                 let stagger_direction = rng.roll_dice(1, 4);
                 match stagger_direction {
